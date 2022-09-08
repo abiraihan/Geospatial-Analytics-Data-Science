@@ -137,6 +137,7 @@ def clean_identical(
             i['geometry']['coordinates'][0],
             i['geometry']['coordinates'][1]
             )
+        print(i['geometry']['type'])
         shapeArray.append([x, y, *[values for keys, values in {**i['properties']}.items()]])
             
     file.close()
