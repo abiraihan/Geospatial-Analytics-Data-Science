@@ -48,13 +48,13 @@ def set_attribute(
         for arg in args:
             if arg not in list(schema['properties'].keys()):
                 raise ValueError(f"'{arg}' not available into the data columns,\
-                                 please assign available attribute name")
+                                 please select correct attribute name")
         attribute = list(xy.keys()) + [arg for arg in args]
     else:
         for arg in args:
             if arg not in list(schema['properties'].keys()):
                 raise ValueError(f"'{arg}' not available into the data columns,\
-                                  please assign available attribute name")
+                                  please select correct attribute name")
         if len(args) > 0:
             attribute = [arg for arg in args]
         else:
