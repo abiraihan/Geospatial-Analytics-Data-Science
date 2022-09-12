@@ -14,8 +14,8 @@ import numpy as np
 from osgeo import osr
 from tqdm import tqdm
 from collections import OrderedDict
-from shapely.geometry import Point, mapping
-from numpy.lib.recfunctions import structured_to_unstructured
+from shapely.ops import transform
+from shapely.geometry import Point, mapping, Polygon, MultiPolygon
 
 
 class geoprocessing:
@@ -35,7 +35,7 @@ class geoprocessing:
         targetCrs : int
             CRS number as from EPSG CODE to create new 'profile' for new shapefile to create
         *args : TYPE
-            List of Attribute name will return index.
+            List of Attribute name will return as index.
         **kwargs : TYPE
             Default 'xycoords' arguments is set False as to confirm that \
                 xy coordinates will not be account for point geometry.
@@ -45,7 +45,7 @@ class geoprocessing:
         dict
             key as 'index': index location of the attribute into numpy array,
             key as 'attribute_index': dict as of the location of the attribute and attribute name,
-            key as 'profile': 'profile' as dict for the new shapefile taht will be created. 
+            key as 'profile': 'profile' as dict for the new shapefile that will be created. 
 
         '''
         
@@ -132,6 +132,62 @@ class geoprocessing:
                     for i, _ in mergeDict.items()
                     if i in attribute}
                 }
+    
+    @classmethod
+    def set_attribute_poly(
+            cls,
+            fileProfile:dict,
+            targetCrs:int
+            ) -> dict:
+        '''
+
+        Parameters
+        ----------
+        fileProfile : dict
+            'profile' from the fiona shapefile **meta as a dictionary.
+        targetCrs : int
+            CRS number as from EPSG CODE to create new 'profile' for new shapefile to create
+
+        Returns
+        -------
+        dict
+            key as 'index': index location of the attribute into numpy array,
+            key as 'profile': 'profile' as dict for the new shapefile that will be created.
+
+        '''
+        
+        cls._fileProfile = fileProfile
+        cls._targetCrs = targetCrs
+        
+        polys = OrderedDict(
+            [('lat', 'float:20.20')])
+        
+        mergeDict = OrderedDict(
+            list(polys.items()) +
+            list(cls._fileProfile['schema']['properties'].items()))
+        
+        if cls._targetCrs is not None:
+            crs = {'init':f'epsg:{cls._targetCrs}'}
+            srs = osr.SpatialReference()
+            srs.ImportFromEPSG(cls._targetCrs)
+            crs_wkt = srs.ExportToWkt()
+        else:
+            crs = cls._fileProfile['crs']
+            crs_wkt = cls._fileProfile['crs_wkt']
+        
+        profile = {
+            'driver' : cls._fileProfile['driver'],
+            'schema' : {'geometry' : cls._fileProfile['schema']['geometry'],
+                        'properties': cls._fileProfile['schema']['properties'].items()},
+            'crs' : crs,
+            'crs_wkt' : crs_wkt
+            }
+        return {
+            'attribute_index' : {
+                i:list(mergeDict.keys()).index(i)
+                for i, _ in mergeDict.items()
+                if i not in list(polys.keys())},
+            'profile' : profile}
     
     @classmethod
     def remove_identical_point(
@@ -250,12 +306,127 @@ class geoprocessing:
         output.close()
         
         return file_path
+
+    @classmethod
+    def remove_identical_poly(
+            cls, 
+            filename:str, 
+            **kwargs) -> str:
+        '''
+
+        Parameters
+        ----------
+        filename : str
+            -> file path location of shapefile.
+        **kwargs : keywords agrs
+            --> 'outputDirs' is 'None', if assigned then shapefile will be \
+                exported to the assinged 'ouputDirs' directory.
+            --> 'fileNames' is 'None', if assigned then shapefile name will be \
+                assinged while exporting shapefile,
+            --> 'targetEPSG' is 'None', if assinged then shapefile projection will \
+                be assinged and exported with 'targetEPSG' as coordinate reference
+                system
+            --> 'removeIdentical' is 'False'', If assinged 'True' then identical \
+                records will be removed from the datasets/shapefile.
+
+        Raises
+        ------
+        TypeError
+            --> if found geometry type other than 'Polygon' or 'MultiPolygon'
+        ValueError
+            if assigned 'outputDirs' is not a valid directory path.
+
+        Returns
+        -------
+        str
+            --> file path location of the exported shapefile.
+
+        '''
+        
+        cls._filename = filename
+                
+        poly_args = dict(
+            outputDirs = None,
+            fileNames = None,
+            targetEPSG = None,
+            removeIdentical = False
+            )
+        
+        for key, value in poly_args.items():
+            if key in kwargs:
+                poly_args[key] = kwargs[key]
+        
+        shapefile = fiona.open(cls._filename, 'r')
+        
+        if poly_args['targetEPSG'] is not None:
+            target_crs = int(poly_args['targetEPSG'])
+        else:
+            target_crs = int(re.split(r":", shapefile.crs['init'])[1])
+        
+        transformer = pyproj.Transformer.from_crs(
+            crs_from=pyproj.CRS.from_user_input(int(re.split(r":", shapefile.crs['init'])[1])),
+            crs_to=pyproj.CRS.from_user_input(target_crs),
+            always_xy=True
+            )
+        
+        schemas = cls.set_attribute_poly(shapefile.profile, poly_args['targetEPSG'])
+        
+        assert shapefile.schema['geometry'] == 'Polygon', f"geometry type should be 'Polygon', '{shapefile.schema['geometry']}' not accepted"
+        
+        init_array = []
+        for i in tqdm(shapefile, desc = f'Reading Files ---> {os.path.basename(cls._filename)}'):
+            if i['geometry']['type'] == 'Polygon':
+                polys = [Polygon(geom) for geom in i['geometry']['coordinates']]
+                trsnPoly = [transform(transformer.transform, i) for i in polys]
+                init_array.append([
+                    *trsnPoly,
+                    *[values for keys, values in {**i['properties']}.items()]]
+                    )
+            elif i['geometry']['type'] == 'MultiPolygon':
+                multipolys = [Polygon(coords[0]) for coords in i['geometry']['coordinates']]
+                trsnMultiPoly = MultiPolygon([transform(transformer.transform, i) for i in multipolys])
+                init_array.append([
+                    trsnMultiPoly,
+                    *[values for keys, values in {**i['properties']}.items()]]
+                    )
+            else:
+                raise TypeError(f"Found {i['geometry']['type']} geometry type")
+        shapefile.close()
+        
+        if poly_args['removeIdentical'] == True:
+            unique_array, unique_poly = [], []
+            for geom in init_array:
+                if not any(poly.equals(geom[0]) for poly in unique_poly):
+                    unique_array.append([*geom])
+        else:
+            unique_array = init_array
+        
+        if poly_args['outputDirs'] is not None:
+            if os.path.exists(os.path.dirname(cls._filename)):
+                if poly_args['fileNames'] is not None:
+                    file_path = f"{poly_args['outputDirs']}/{poly_args['fileNames']}.shp"
+                else:
+                    file_path = f"{poly_args['outputDirs']}/{os.path.basename(cls._filename)}"
+            else:
+                raise ValueError(f"Aformentioned directory {poly_args['outputDirs']} is not a valid path location.\
+                                  Please assign valid directory")
+        else:
+            if poly_args['fileNames'] is not None:
+                file_path = f"{os.path.dirname(cls._filename)}/{poly_args['fileNames']}.shp"
+            else:
+                file_path = f"{os.path.dirname(cls._filename)}/{os.path.basename(cls._filename)}"
+        with fiona.open(file_path, 'w', **schemas['profile']) as output:
+            for row in tqdm(unique_array, desc = f'Creating Files --> {os.path.basename(file_path)}', colour = 'Green'):
+                  properties = {name : row[index] for name, index in schemas['attribute_index'].items()}
+                  output.write({'geometry':mapping(row[0]),'properties': properties})
+        output.close()
+        
+        return file_path
     
     @classmethod
     def structured_numpy_array(
             cls,
-            filePath:str,
-            **kwargs
+            filePath:str
             ):
         '''
 
@@ -263,8 +434,6 @@ class geoprocessing:
         ----------
         filePath : str
                 --> file path of shapefile location.
-        **kwargs : keywords args
-                --> 'structured' = True, If False, then return regular unstructured array.
 
         Raises
         ------
@@ -281,13 +450,6 @@ class geoprocessing:
         '''
         
         cls._filePath = filePath
-        
-        args = dict(
-            structured = True
-            )
-        for key, value in args.items():
-            if key in kwargs:
-                args[key] = kwargs[key]
                 
         shape_array = []
         with fiona.open(cls._filePath, 'r') as shapefile:
@@ -332,12 +494,8 @@ class geoprocessing:
             elif itemType[0] == 'int':
                 attribute_type[i] = (i, np.int64)
             else:
-                raise TypeError(f"Please define dtype for {i} at structured array py definition")
+                raise TypeError(f"Please define dtype for {i} at 'structured_numpy_array' definition")
                 
         array = np.array(shape_array, dtype=[i for i in np.dtype([i for _, i in attribute_type.items()]).descr])
-        if args['structured'] == True:
-            array = np.array(shape_array, dtype=[i for i in np.dtype([i for _, i in attribute_type.items()]).descr])
-        else:
-            array = structured_to_unstructured(array, dtype = '<U64')
         
         return array, profile
