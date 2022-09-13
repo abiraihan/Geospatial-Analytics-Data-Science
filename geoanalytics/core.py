@@ -467,8 +467,7 @@ class geoprocessing:
                 [('lat', 'float:20.20'),
                 ('lon', 'float:20.20')]
                 ).items()) + list(shapefile.profile['schema']['properties'].items()))
-        
-        
+            
             crs = {'init':f'epsg:{source_crs}'}
             srs = osr.SpatialReference()
             srs.ImportFromEPSG(source_crs)
@@ -476,10 +475,10 @@ class geoprocessing:
             
             profile = {'driver': shapefile.profile['driver'],
                         'schema' : {'geometry': shapefile.profile['schema']['geometry'],
-                        'properties':properties,
+                        'properties':properties},
                         'crs' : crs,
                         'crs_wkt' : crs_wkt
-                        }}
+                        }
         shapefile.close()
         
         attribute_type = {}
