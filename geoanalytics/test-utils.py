@@ -54,5 +54,6 @@ findFile = lambda dirs, ext:[os.path.join(dirs, i) for i in os.listdir(dirs) if 
 
 
 dataDirs = '/home/raihan/output_dirs'
+print(findFile( dataDirs, ''))
 
 
