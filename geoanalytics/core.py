@@ -15,7 +15,7 @@ from osgeo import osr
 from tqdm import tqdm
 from collections import OrderedDict
 from shapely.ops import transform
-from shapely.geometry import Point, mapping, Polygon, MultiPolygon
+from shapely.geometry import Point, mapping, shape, Polygon, MultiPolygon
 
 
 class geoprocessing:
@@ -437,8 +437,6 @@ class geoprocessing:
 
         Raises
         ------
-        TypeError
-            Raise TypeError if dtype not found to assign.
 
         Returns
         -------
@@ -457,15 +455,13 @@ class geoprocessing:
             for i in shapefile:
                 shape_array.append(
                     tuple([
-                    i['geometry']['coordinates'][0],
-                    i['geometry']['coordinates'][0],
+                    shape(i['geometry']),
                     *[values for keys, values in {**i['properties']}.items()]
                     ])
                     )
             
             properties = OrderedDict(list(OrderedDict(
-                [('lat', 'float:20.20'),
-                ('lon', 'float:20.20')]
+                [('geometry', 'object')]
                 ).items()) + list(shapefile.profile['schema']['properties'].items()))
             
             crs = {'init':f'epsg:{source_crs}'}
@@ -475,7 +471,7 @@ class geoprocessing:
             
             profile = {'driver': shapefile.profile['driver'],
                         'schema' : {'geometry': shapefile.profile['schema']['geometry'],
-                        'properties':properties},
+                        'properties':shapefile.profile['schema']['properties']},
                         'crs' : crs,
                         'crs_wkt' : crs_wkt
                         }
@@ -492,8 +488,10 @@ class geoprocessing:
                 attribute_type[i] = (i, 'datetime64[D]')
             elif itemType[0] == 'int':
                 attribute_type[i] = (i, np.int64)
+            elif itemType[0] == 'object':
+                attribute_type[i] = (i, np.object)
             else:
-                raise TypeError(f"Please define dtype for {i} at 'structured_numpy_array' definition")
+                attribute_type[i] = (i, np.object)
                 
         array = np.array(shape_array, dtype=[i for i in np.dtype([i for _, i in attribute_type.items()]).descr])
         

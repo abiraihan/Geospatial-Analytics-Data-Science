@@ -7,207 +7,277 @@ Created on Thu Sep  8 18:22:50 2022
 """
 
 import numpy as np
-from shapely.geometry import Point, mapping
-from tqdm import tqdm
-from collections import OrderedDict
-import os
-import re
-import pyproj
 import fiona
-from osgeo import osr
-# Iterate directory for shapefile
+import re
+import warnings
+import pandas as pd
+import geopandas as gpd
+from tqdm import tqdm
+import shapely
 
-def set_attribute(
-        profiles:dict,
-        targetProj:int,
-        *args,
-        **kwargs
-        ) -> dict:
+class _process_geometry:
     
-    schema = profiles['schema']
-    geom_type = schema['geometry']
-    
-    data_args = dict(
-        xycoords = False
-        )
-    
-    for key, value in data_args.items():
-        if key in kwargs:
-            data_args[key] = kwargs[key]
-    
-    xy = OrderedDict(
-        [('lat', 'float:20.20'),
-        ('lon', 'float:20.20')]
-        )
-    
-    identical_cols = OrderedDict([('identical', 'int:15')])
-    
-    mergeDict = OrderedDict(list(xy.items()) + list(schema['properties'].items()) + list(identical_cols.items()))
-    
-    if data_args['xycoords'] == True:
-        for arg in args:
-            if arg not in list(schema['properties'].keys()):
-                raise ValueError(f"'{arg}' not available into the data columns,\
-                                 please select correct attribute name")
-        attribute = list(xy.keys()) + [arg for arg in args]
-    else:
-        for arg in args:
-            if arg not in list(schema['properties'].keys()):
-                raise ValueError(f"'{arg}' not available into the data columns,\
-                                  please select correct attribute name")
-        if len(args) > 0:
-            attribute = [arg for arg in args]
-        else:
-            attribute = list(schema['properties'].keys())
-    
-    crs = {'init':f'epsg:{targetProj}'}
-    srs = osr.SpatialReference()
-    srs.ImportFromEPSG(targetProj)
-    crs_wkt = srs.ExportToWkt()
-    
-    profile = {
-        'driver': profiles['driver'],
-        'schema' : {'geometry': schema['geometry'],
-        'properties':OrderedDict({i:j
-                                  for i, j in mergeDict.items()
-                                  if i not in ['lat', 'lon']
-                                  }
-                                 )},
-        'crs' : crs,
-        'crs_wkt' : crs_wkt
-        }
-    
-    if geom_type == 'Point':
-        attributeDict  = {
-            i:list(mergeDict.keys()).index(i)
-            for i, _ in mergeDict.items()
-            if i in attribute
-            }
+    @classmethod
+    def _point_to_poly(
+            cls,
+            point_origin:tuple,
+            y_axis_length:float,
+            x_axis_length:float,
+            rotation_angle:float,
+            **kwargs
+            ) -> shapely.geometry.Polygon:
+        '''
+
+        Parameters
+        ----------
+        point_origin : tuple
+            DESCRIPTION.
+        y_axis_length : float
+            DESCRIPTION.
+        x_axis_length : float
+            DESCRIPTION.
+        rotation_angle : float
+            DESCRIPTION.
+        **kwargs : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        polyshape : TYPE
+            DESCRIPTION.
+
+        '''
         
-        return {'index' : list(attributeDict.values()),
-                'attribute_index' : {
-                    i:list(mergeDict.keys()).index(i)
-                    for i, _ in mergeDict.items()
-                    if i not in ['lat', 'lon']},
-                'profile' : profile}
-    
-def clean_identical(
-        filename:str,
-        *args,
-        **kwargs        
-        ):
-    
-    filenames = os.path.basename(filename)
-    
-    data_args = dict(
-        output_dirs = None,
-        file_names = None,
-        target_crs = None,
-        xycoords = False,
-        remove_identical = False
-        )
-    
-    for key, value in data_args.items():
-        if key in kwargs:
-            data_args[key] = kwargs[key]
-    
-    file = fiona.open(filename, 'r')
-    source_crs = int(re.split(r":", file.crs['init'])[1])
-    
-    if data_args['target_crs'] is not None:
-        transformer = pyproj.Transformer.from_crs(
-            crs_from=pyproj.CRS.from_user_input(source_crs),
-            crs_to=pyproj.CRS.from_user_input(int(data_args['target_crs'])),
-            always_xy=True)
-        schemas = set_attribute(file.profile, int(data_args['target_crs']), *args, **kwargs)
-
-    else:
-        transformer = pyproj.Transformer.from_crs(
-            crs_from=pyproj.CRS.from_user_input(source_crs),
-            crs_to=pyproj.CRS.from_user_input(source_crs),
-            always_xy=True
+        cls._point_origin = point_origin
+        cls._y_axis_length = y_axis_length
+        cls._x_axis_length = x_axis_length
+        cls._rotation_angle = rotation_angle
+        
+        ft_deg = lambda x : (x*0.3047999902464003)/1e5
+ 
+        keyword_args = dict(
+            y_axis_offset = 0,
+            x_axis_tolerance = 0,
+            y_axis_tolerance = 0
             )
-        schemas = set_attribute(file.profile, source_crs, *args, **kwargs)
-    
-    shapeArray = []
-    
-    assert file.schema['geometry'] == 'Point', f"geometry type should be 'Point', '{file.schema['geometry']}' not accepted"
-    for i in tqdm(file, desc = f'Reading Files ---> {filenames}'):
-        x, y = transformer.transform(
-            i['geometry']['coordinates'][0],
-            i['geometry']['coordinates'][1]
-            )
-        print(i['geometry']['type'])
-        shapeArray.append([x, y, *[values for keys, values in {**i['properties']}.items()]])
-            
-    file.close()
-    
-    point, indices, inverse, count  = np.unique(
-        np.array(shapeArray)[:, schemas['index']],
-        return_index=True,
-        return_inverse=True,
-        return_counts=True,
-        axis = 0
-        )
-    
-    # with_indices = np.array([np.insert(select_array[i], len(select_array[i]), i, axis = 0) for i in indices])
-    select_array = np.concatenate((shapeArray, inverse.reshape(len(inverse), 1)), axis=1)
-    
-    if data_args['remove_identical'] == False:
-        identical_array = select_array
-        schemas['array_data'] = identical_array
-    else:
-        identical_array = np.array([select_array[i] for i in indices])
-        schemas['array_data'] = identical_array
-    
-    if data_args['output_dirs'] is not None:
-        if os.path.exists(os.path.dirname(filename)):
-            if data_args['file_names'] is not None:
-                file_path = f"{data_args['output_dirs']}/{data_args['file_names']}.shp"
+        
+        if cls._rotation_angle > 360 or cls._rotation_angle < 0:
+            warnings.formatwarning = lambda msg, *args, **kwargs: f'{msg}\n'
+            warnings.warn(f'--- Found Track degree out of bounds of {cls._rotation_angle}')
+        
+        for key, value in keyword_args.items():
+            if key in kwargs:
+                keyword_args[key] = kwargs[key]
+        
+        if keyword_args['x_axis_tolerance'] != 0 and keyword_args['y_axis_tolerance'] != 0:
+            cls._x_axis_length = cls._x_axis_length + float(keyword_args['x_axis_tolerance'])
+            cls._y_axis_length = cls._y_axis_length + float(keyword_args['y_axis_tolerance'])
+        elif keyword_args['x_axis_tolerance'] != 0 and keyword_args['y_axis_tolerance'] == 0:
+            cls._x_axis_length = cls._x_axis_length + float(keyword_args['x_axis_tolerance'])
+            cls._y_axis_length = cls._y_axis_length
+        elif keyword_args['x_axis_tolerance'] == 0 and keyword_args['y_axis_tolerance'] != 0:
+            cls._x_axis_length = cls._x_axis_length
+            cls._y_axis_length = cls._y_axis_length + float(keyword_args['y_axis_tolerance'])
+        else:
+            cls._x_axis_length = cls._x_axis_length
+            cls._y_axis_length = cls._y_axis_length
+        
+        ymax = cls._point_origin[1] + ft_deg(cls._y_axis_length)/2
+        ymin = cls._point_origin[1] - ft_deg(cls._y_axis_length)/2
+        
+        if keyword_args['y_axis_offset'] != 0:
+            if keyword_args['y_axis_offset'] < 0 and cls._rotation_angle >= 180:
+                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) + ft_deg(keyword_args['y_axis_offset'])
+                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) + ft_deg(keyword_args['y_axis_offset'])
+            elif keyword_args['y_axis_offset'] < 0 and cls._rotation_angle < 180:
+                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) - ft_deg(keyword_args['y_axis_offset'])
+                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) - ft_deg(keyword_args['y_axis_offset'])
+            elif keyword_args['y_axis_offset'] > 0 and cls._rotation_angle < 180:
+                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) - ft_deg(keyword_args['y_axis_offset'])
+                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) - ft_deg(keyword_args['y_axis_offset'])
+            elif keyword_args['y_axis_offset'] > 0 and cls._rotation_angle >= 180:
+                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) + ft_deg(keyword_args['y_axis_offset'])
+                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) + ft_deg(keyword_args['y_axis_offset'])
             else:
-                file_path = f"{data_args['output_dirs']}/{filenames}"
+                xmax = ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]
+                xmin = cls._point_origin[0] - ft_deg(cls._x_axis_length)/2
         else:
-            raise ValueError(f"Aformentioned directory {data_args['output_dirs']} is not a valid path location.\
-                             Please assign valid directory")
-    else:
-        if data_args['file_names'] is not None:
-            file_path = f"{os.path.dirname(filename)}/{data_args['file_names']}.shp"
-        else:
-            file_path = f"{os.path.dirname(filename)}/{filenames}"
-    
-    nameFile = os.path.basename(file_path)
+            xmax = ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]
+            xmin = cls._point_origin[0] - ft_deg(cls._x_axis_length)/2
             
-    with fiona.open(file_path, 'w', **schemas['profile']) as output:
-        for row in tqdm(schemas['array_data'], desc = f'Creating Files --> {nameFile}', colour = 'Green'):
-             point = Point(float(row[0]), float(row[1]))
-             properties = {name : row[vals] for name, vals in schemas['attribute_index'].items()}
-             output.write({'geometry':mapping(point),'properties': properties})
-    output.close()
+        deg180 = lambda x , y: x - y*(x//y)
+        
+        poly = shapely.geometry.Polygon([[xmax, ymin], [xmax, ymax], [xmin, ymax], [xmin, ymin]])
+        if cls._rotation_angle <= 180:
+            polyshape = shapely.affinity.rotate(poly, (180 - cls._rotation_angle), origin = cls._point_origin)
+        elif 180 < cls._rotation_angle <= 360:
+            polyshape = shapely.affinity.rotate(poly, (360 - cls._rotation_angle), origin = cls._point_origin)
+        elif cls._rotation_angle > 360:
+            polyshape = shapely.affinity.rotate(poly, deg180(cls._rotation_angle, 180), origin = cls._point_origin)
+        else:
+            polyshape = shapely.affinity.rotate(poly, cls._rotation_angle, origin = cls._point_origin)
+        return polyshape
     
-    return file_path
-
-dirPath = '/home/raihan/2018'
-outDirs = '/home/raihan/ExportData'
-file = lambda dirs, ext:[os.path.join(dirPath, i) for i in os.listdir(dirs) if os.path.splitext(i)[1] == str('.'+(ext))]
-import random
-filesname = OrderedDict()
-filesname['inpath'] = file(dirPath, 'shp')[random.randint(0, len(file(dirPath, 'shp')))]
-filesname['output_dirs'] = outDirs
-filesname['file_names'] = 'removedDuplicated'
-filesname['target_crs'] = None
-filesname['xycoords'] = True
-filesname['remove_identical'] = True
-filesname['attribute'] = ['Product', 'Distance_f', 'Track_deg_', 'Swth_Wdth_', 'Y_Offset_f', 'Rt_Apd_Ct_', 'Date']
-filesname['outpath'] = clean_identical(filesname['inpath'], *filesname['attribute'], **filesname)
-
-shape_array = []
-with fiona.open(filesname['outpath'], 'r') as shapefile:
-    source_crs = int(re.split(r":", shapefile.crs['init'])[1])
-    for i in shapefile:
-        shape_array.append(
-            [i['geometry']['coordinates'][0],
-              i['geometry']['coordinates'][1],
-              *[values for keys, values in {**i['properties']}.items()]]
+    @staticmethod
+    def get_polygon(files,
+                    attribute:list,
+                    **kwargs
+                    ):
+        #example of attribute = ['Distance_f', 'Swth_Wdth_', 'Track_deg_']
+        #example of **kwargs is tolerances = 5 in feet and distances = 5 in feet
+        #and yoffset is gonna be the column of the y_offset as name
+        # get_polygon(i, ['Distance_f', 'Swth_Wdth_', 'Track_deg_'], yoffset = 'Y_Offset_f')
+        keyword_args = dict(
+            yoffset = None,
+            tolerances = 0,
+            distances = 0
             )
-    schemas = set_attribute(shapefile.profile, source_crs, *filesname['attribute'], xycoords = False)
-shapefile.close()
+        
+        for key, value in keyword_args.items():
+            if key in kwargs:
+                keyword_args[key] = kwargs[key]
+        if isinstance(files, str):
+            geomsArray = []
+            with fiona.open(files, 'r') as file:
+                crsNumber = re.split(r'[:]', file.crs['init'])[1]
+                fileAttributes = [i for i in file.schema['properties'].keys()]
+                for geoms in tqdm(file, desc = f'{len(file)} ', colour = 'blue'):
+                    if isinstance(keyword_args['yoffset'], str):
+                        try:
+                            swathpolygon = cleandata.swath_poly(
+                                geoms['geometry']['coordinates'],
+                                float(geoms['properties'][attribute[0]]),
+                                float(geoms['properties'][attribute[1]]),
+                                float(geoms['properties'][attribute[2]]),
+                                yoffset = float(geoms['properties'][keyword_args['yoffset']]),
+                                tolerances= keyword_args['tolerances'],
+                                distances = keyword_args['distances']
+                                )
+                            run = 0
+                        except KeyError:
+                            swathpolygon = cleandata.swath_poly(
+                                geoms['geometry']['coordinates'],
+                                float(geoms['properties'][attribute[0]]),
+                                float(geoms['properties'][attribute[1]]),
+                                float(geoms['properties'][attribute[2]]),
+                                yoffset = 0.0,
+                                tolerances= keyword_args['tolerances'],
+                                distances = keyword_args['distances']
+                                )
+                            run = 2
+                    elif isinstance(keyword_args['yoffset'], (int, float)):
+                        swathpolygon = cleandata.swath_poly(
+                            geoms['geometry']['coordinates'],
+                            float(geoms['properties'][attribute[0]]),
+                            float(geoms['properties'][attribute[1]]),
+                            float(geoms['properties'][attribute[2]]),
+                            yoffset = float(keyword_args['yoffset']),
+                            tolerances= keyword_args['tolerances'],
+                            distances = keyword_args['distances']
+                            )
+                        run = 1
+                    else:
+                        swathpolygon = cleandata.swath_poly(
+                            geoms['geometry']['coordinates'],
+                            float(geoms['properties'][attribute[0]]),
+                            float(geoms['properties'][attribute[1]]),
+                            float(geoms['properties'][attribute[2]]),
+                            yoffset = 0.0,
+                            tolerances= keyword_args['tolerances'],
+                            distances = keyword_args['distances']
+                            )
+                        run = 2
+                    geomsArray.append([
+                        *[geoms['properties'][i]
+                          for i in list(geoms['properties'].keys())],
+                        swathpolygon]
+                        )
+            schema = {'geometry': 'Polygon',
+                      'properties': dict(file.schema['properties'])
+                      }
+            drt = {}
+            for i, j in dict(file.schema['properties']).items():
+                drt[i] = re.split(r'[:]', j)[0]
+                if j == 'date':
+                    drt[i] = 'datetime64[ns]'
+            gdf = gpd.GeoDataFrame(
+                np.array(geomsArray, dtype=object),
+                columns=[*fileAttributes, 'geometry'],
+                crs = f'EPSG:{crsNumber}',
+                geometry = [i[-1] for i in geomsArray]
+                ).astype(drt)
+            gdf = gdf.set_geometry('geometry')
+            
+            if run == 2:
+                warnings.formatwarning = lambda msg, *args, **kwargs: f'{msg}\n'
+                warnings.warn(f"\n--- Couldnt find the yoffset as column or values , y offset set as 0" )
+        elif isinstance(files, gpd.GeoDataFrame) and all(files.geometry.geom_type == 'Point') == True:
+            dataDict = {i:str(files[i].dtype) for i in list(files.columns)}
+            schema = {'geometry': 'Polygon',
+                      'properties': {i:str(files[i].dtype) for i in list(files.columns) if i != 'geometry'}
+                      }
+            crsNumber = files.crs.to_epsg()
+            cols = [i for i in files.columns]
+            files['coords'] = files.apply(lambda row : (row.geometry.x, row.geometry.y), axis = 1)
+            files = files.drop('geometry', axis = 1)
+            
+            colIndex = {i:files.columns.get_loc(i) for i in attribute}
+            
+            
+            coords_ = files.columns.get_loc('coords')
+            
+            geomsArray = []
+            for i in tqdm(files.values, desc = f'{len(files)} ', colour = 'blue'):
+                dfData = i[:coords_]
+                if isinstance(keyword_args['yoffset'], str):
+                    try:
+                        offset_ = files.columns.get_loc(keyword_args['yoffset'])
+                        polys = cleandata.swath_poly(
+                            xycoords =i[coords_],
+                            distance=i[colIndex[attribute[0]]],
+                            swath = i[colIndex[attribute[1]]],
+                            track_deg = i[colIndex[attribute[2]]],
+                            yoffset = i[offset_],
+                            tolerances = keyword_args['tolerances'],
+                            distances = keyword_args['distances']
+                            )
+                    except KeyError:
+                        polys = cleandata.swath_poly(
+                            xycoords =i[coords_],
+                            distance=i[colIndex[attribute[0]]],
+                            swath = i[colIndex[attribute[1]]],
+                            track_deg = i[colIndex[attribute[2]]],
+                            yoffset = 0,
+                            tolerances = keyword_args['tolerances'],
+                            distances = keyword_args['distances']
+                            )
+                elif isinstance(keyword_args['yoffset'], (int, float)):
+                    polys = cleandata.swath_poly(
+                        xycoords =i[coords_],
+                        distance=i[colIndex[attribute[0]]],
+                        swath = i[colIndex[attribute[1]]],
+                        track_deg = i[colIndex[attribute[2]]],
+                        yoffset = keyword_args['yoffset'],
+                        tolerances = keyword_args['tolerances'],
+                        distances = keyword_args['distances']
+                        )
+                else:
+                    polys = cleandata.swath_poly(
+                        xycoords =i[coords_],
+                        distance=i[colIndex[attribute[0]]],
+                        swath = i[colIndex[attribute[1]]],
+                        track_deg = i[colIndex[attribute[2]]],
+                        yoffset = 0.0,
+                        tolerances = keyword_args['tolerances'],
+                        distances = keyword_args['distances']
+                        )
+                geomsArray.append([*dfData, polys])
+            
+            gdf = gpd.GeoDataFrame(
+                np.array(geomsArray, dtype=object),
+                columns=cols,
+                crs = f'EPSG:{crsNumber}',
+                geometry = [i[-1] for i in geomsArray]
+                ).astype(dataDict)
+            gdf = gdf.set_geometry('geometry')
+        return gdf, schema, crsNumber
