@@ -104,22 +104,20 @@ from utils import _process_geometry
 #     for point in list(arrays_point['geometry']):
 #         if point.intersects(poly) == True:
 #             data.append(point)
-
+import time
 mzs_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Soil Sample/Panola Farming_South Panola_SP 12_2022_NO Product_1_poly.shp'
 swath_poly_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/processed_data/planting_point_swath_poly.shp'
 planting = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Planting/Panola Farming_South Panola_SP 12_2022_P1718-PRYME_1.shp'
 ecom = '/araihan/Reserach_Data/extracted_data/Panola Farming/ECOM/Panola Farming_South Panola_SP 12_NO Year_TSM_1.shp'
 
-
+start_obj = time.time()
 arrays_point, profile_point = geoprocessing.structured_numpy_array(ecom)
 
 arrays_poly, profile_poly = geoprocessing.structured_numpy_array(mzs_path)
+print("prep data " + str(time.time() - start_obj))
 from shapely.geometry.base import BaseGeometry
 from rtree import index
 from shapely.prepared import prep
-
-import time
-
 
 def query(geom_query, arrays_point, indexes):
     
@@ -154,64 +152,83 @@ def query_bulk(query_geom, tree_geom):
         input_geometry_index.extend([i] * len(res))
     return np.vstack([input_geometry_index, tree_index])
 
-start_obj = time.time()
-# dt = query_bulk(arrays_poly, arrays_point)
+# start_obj = time.time()
+# rtree_indices = query_bulk(arrays_poly, arrays_point)
 
-print("Time to execute Rtree method " + str(time.time() - start_obj))
+# print("Time to execute Rtree method " + str(time.time() - start_obj))
 
 
-
+# start_objid = time.time()
 # import pygeos
 
 # geom_point = [pygeos.from_shapely(i) for i in arrays_point['geometry']]
 # geom_poly = [pygeos.from_shapely(i) for i in arrays_poly['geometry']]
 
-# tree = pygeos.STRtree(pygeos.points(np.arange(10), np.arange(10)))
-
-# mean_list = [j for i, j in all_mean.items()]
-# a1 = np.array(mean_list, dtype=[('mean', np.float64)])
-
-# arrays = rfn.merge_arrays([arrays_poly, a1], flatten = True, usemask = False)
-
-# from shapely.strtree import STRtree
-# start_obji = time.time()
-# tree = STRtree(list(arrays_point['geometry']))
-
-# index_by_id = dict((id(pt), i) for i, pt in enumerate(list(arrays_point['geometry'])))
+# tree = pygeos.STRtree(geom_point)
 
 # tree_indexi = []
 # input_geometry_indexi = []
-# point_indices = 0  
-# for i, query_geom in enumerate(arrays_poly):
-#     prep_geom = prep(query_geom['geometry'])
-#     selected_point = [(index_by_id[id(pt)], pt.wkt) for pt in tree.query(query_geom['geometry']) if pt.within(query_geom['geometry'])]
-#     indices = [i[0]for i in selected_point]
-#     tree_indexi.extend(np.sort(np.array(indices, dtype = np.intp)))
-#     input_geometry_indexi.extend([i] * len(indices))
-#     # point_indices[id(query_geom['geometry'])] = indices
-#     # point_indices+=len(indices)
-#     # geoVals = np.array([arrays_point[['Rt_Apd_Ct_', 'Year___Yea']][i] for i in indices])
-#     # mean_r4 = geoVals['Rt_Apd_Ct_'].mean()
-#     # mean_r3 = geoVals['Year___Yea'].mean()
-#     # print('Rate Apd value {} and Year value {} for {} number of points'.format(mean_r4, mean_r3, point_indices))
-# query_sbulk = np.vstack([input_geometry_indexi, tree_indexi])
-# print("Time to execute shapely STRtree method " + str(time.time() - start_obji))
+# for i, geom in enumerate(geom_poly):
+#     lit = tree.query(geom, predicate='contains').tolist()
+#     tree_indexi.extend(np.sort(np.array(lit, dtype = np.intp)))
+#     input_geometry_indexi.extend([i] * len(lit))
+# pygeos_strtree_indices = np.vstack([input_geometry_indexi, tree_indexi])
+# print("Time to execute pygeos STRtree method " + str(time.time() - start_objid))
 
 
-# print(query_bulk)
-# print(query_sbulk)
+# query = tree.query_bulk(geom_poly, predicate='contains').tolist()
+# query_geobulk = np.vstack([query[0], query[1]])
+# print("Time to execute pygeos STRtree method " + str(time.time() - start_obji))
+
+
+
+# mean_list = [j for i, j in all_mean.items()]
+# a1 = np.array(mean_list, dtype=[('mean', np.float64)])
+# arrays = rfn.merge_arrays([arrays_poly, a1], flatten = True, usemask = False)
+
+
+start_obji = time.time()
+from shapely.strtree import STRtree
+
+tree = STRtree(list(arrays_point['geometry']))
+index_by_id = dict((id(pt), i) for i, pt in enumerate(list(arrays_point['geometry'])))
+
+tree_indexi = []
+input_geometry_indexi = []
+point_indices = 0  
+for i, query_geom in enumerate(arrays_poly):
+    prep_geom = prep(query_geom['geometry'])
+    # selected_point = [(index_by_id[id(pt)], pt.wkt) for pt in tree.query(query_geom['geometry']) if prep_geom.contains(pt)]
+    # indices = [i[0]for i in selected_point]
+    selected_point = [index_by_id[id(pt)] for pt in tree.query(query_geom['geometry']) if prep_geom.intersects(pt)]
+    tree_indexi.extend(np.sort(np.array(selected_point, dtype = np.intp)))
+    input_geometry_indexi.extend([i] * len(selected_point))
+    # point_indices[id(query_geom['geometry'])] = indices
+    # point_indices+=len(indices)
+    # geoVals = np.array([arrays_point[['Rt_Apd_Ct_', 'Year___Yea']][i] for i in indices])
+    # mean_r4 = geoVals['Rt_Apd_Ct_'].mean()
+    # mean_r3 = geoVals['Year___Yea'].mean()
+    # print('Rate Apd value {} and Year value {} for {} number of points'.format(mean_r4, mean_r3, point_indices))
+shapely_strtree_indices = np.vstack([input_geometry_indexi, tree_indexi])
+print("Time to execute shapely STRtree method " + str(time.time() - start_obji))
+
+# print('Rtree indices {}'.format(rtree_indices))
+# print('pygeos STRtree Indices {}'.format(pygeos_strtree_indices))
+print('Shapely STRtree indices {}'.format(shapely_strtree_indices))
+
 class predicate_type:
     
-    predicates = {'within', 'contains', 'intersects'} | set([None])
+    predicates = {'within', 'contains', 'contains_properly', 'covers', 'intersects'} | set([None])
     
     @classmethod
-    def assign_predicate(cls, predicate):
+    def assign_predicate(cls, predicate = None):
         
         cls._predicate = predicate
         if cls._predicate in cls.predicates:
             return cls._predicate
         else:
-            return cls.predicates
+            raise TypeError("'{}' is not acceptable for opeartion. Select any suitable \
+                            predicates from {}".format(cls._predicate, cls.predicates))
 
-f = getattr(predicate_type, 'assign_predicate')('intersect')
+f = getattr(predicate_type, 'assign_predicate')('intersects')
 print(f)
