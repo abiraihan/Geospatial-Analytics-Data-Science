@@ -23,8 +23,10 @@ from sklearn.linear_model import LinearRegression
 import zipfile
 import numpy.lib.recfunctions as rfn
 import shapely
+from shapely.strtree import STRtree
 from shapely.errors import ShapelyDeprecationWarning
 warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 # findFile = lambda dirs, ext:[os.path.join(dirs, i) for i in os.listdir(dirs) if os.path.splitext(i)[1] == str('.'+(ext))]
 
 # zipExtract = lambda zipfiles, outDirs : zipfile.ZipFile(zipfiles, 'r').extractall(outDirs)
@@ -111,9 +113,9 @@ planting = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Planting/P
 ecom = '/araihan/Reserach_Data/extracted_data/Panola Farming/ECOM/Panola Farming_South Panola_SP 12_NO Year_TSM_1.shp'
 
 start_obj = time.time()
-arrays_point, profile_point = geoprocessing.structured_numpy_array(ecom)
+arrays_point, profile_point = geoprocessing.structured_numpy_array(planting)
 
-arrays_poly, profile_poly = geoprocessing.structured_numpy_array(mzs_path)
+arrays_poly, profile_poly = geoprocessing.structured_numpy_array(swath_poly_path)
 print("prep data " + str(time.time() - start_obj))
 from shapely.geometry.base import BaseGeometry
 from rtree import index
@@ -188,47 +190,115 @@ def query_bulk(query_geom, tree_geom):
 
 
 start_obji = time.time()
-from shapely.strtree import STRtree
-
-tree = STRtree(list(arrays_point['geometry']))
-index_by_id = dict((id(pt), i) for i, pt in enumerate(list(arrays_point['geometry'])))
-
-tree_indexi = []
-input_geometry_indexi = []
-point_indices = 0  
-for i, query_geom in enumerate(arrays_poly):
-    prep_geom = prep(query_geom['geometry'])
-    # selected_point = [(index_by_id[id(pt)], pt.wkt) for pt in tree.query(query_geom['geometry']) if prep_geom.contains(pt)]
-    # indices = [i[0]for i in selected_point]
-    selected_point = [index_by_id[id(pt)] for pt in tree.query(query_geom['geometry']) if prep_geom.intersects(pt)]
-    tree_indexi.extend(np.sort(np.array(selected_point, dtype = np.intp)))
-    input_geometry_indexi.extend([i] * len(selected_point))
-    # point_indices[id(query_geom['geometry'])] = indices
-    # point_indices+=len(indices)
-    # geoVals = np.array([arrays_point[['Rt_Apd_Ct_', 'Year___Yea']][i] for i in indices])
-    # mean_r4 = geoVals['Rt_Apd_Ct_'].mean()
-    # mean_r3 = geoVals['Year___Yea'].mean()
-    # print('Rate Apd value {} and Year value {} for {} number of points'.format(mean_r4, mean_r3, point_indices))
-shapely_strtree_indices = np.vstack([input_geometry_indexi, tree_indexi])
-print("Time to execute shapely STRtree method " + str(time.time() - start_obji))
-
-# print('Rtree indices {}'.format(rtree_indices))
-# print('pygeos STRtree Indices {}'.format(pygeos_strtree_indices))
-print('Shapely STRtree indices {}'.format(shapely_strtree_indices))
 
 class predicate_type:
     
-    predicates = {'within', 'contains', 'contains_properly', 'covers', 'intersects'} | set([None])
+    predicates = {'within', 'contains', 'contains_properly', 'covers', 'overlaps', 'intersects'}
     
     @classmethod
-    def assign_predicate(cls, predicate = None):
+    def valid_predicate(cls, predicate):
         
         cls._predicate = predicate
-        if cls._predicate in cls.predicates:
-            return cls._predicate
-        else:
+        if cls._predicate not in cls.predicates:
             raise TypeError("'{}' is not acceptable for opeartion. Select any suitable \
                             predicates from {}".format(cls._predicate, cls.predicates))
+        if cls._predicate is None:
+            return cls._predicate
+        
+        if cls._predicate in cls.predicates:
+            return cls._predicate
 
-f = getattr(predicate_type, 'assign_predicate')('intersects')
-print(f)
+class spatial_query:
+    
+    def __init__(
+            cls,
+            array_query:np.array,
+            array_tree:np.array
+            )-> np.array:
+        '''
+
+        Parameters
+        ----------
+        array_query : np.array
+            - Numpy array of geomtry will be queried based on
+        array_tree : np.array
+            - Numpy array of geometry be queried
+        predicate : str, optional
+            DESCRIPTION. The default is None. Binary Predicates for logical queries
+
+        Returns
+        -------
+        - Numpy array of indexes for query geometry and queried geometry indexes
+
+        '''
+        
+        cls._array_query = array_query
+        cls._array_tree = array_tree
+    
+    def query(cls, predicate = None):
+        
+        cls._predicate = predicate
+        
+        predicates = {'contains', 'contains_properly', 'covers', 'overlaps', 'intersects'}
+        predicate_op = getattr(predicate_type, 'valid_predicate')(cls._predicate)
+        
+        tree = STRtree(list(cls._array_tree['geometry']))
+        index_by_id = dict((id(pt), i) for i, pt in enumerate(list(cls._array_tree['geometry'])))
+        
+        tree_index, input_geometry_index = [], []
+        for index, query_geom in enumerate(cls._array_query):
+            if not isinstance(query_geom['geometry'], shapely.prepared.PreparedGeometry):
+                query_geoms = prep(query_geom['geometry'])
+            
+            if predicate_op == 'contains':
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if query_geoms.contains(geoms)]
+            elif predicate_op == 'within':
+                print('Executed {}'.format(predicate_op))
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if geoms.within(query_geom['geometry'])]
+            elif predicate_op == 'intersects':
+                print('Executed {}'.format(predicate_op))
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if query_geoms.intersects(geoms)]
+            elif predicate_op == 'covers':
+                print('Executed {}'.format(predicate_op))
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if query_geoms.covers(geoms)]
+            elif predicate_op == 'overlaps':
+                print('Executed {}'.format(predicate_op))
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if query_geoms.overlaps(geoms)]
+            elif predicate_op == 'contains_properly':
+                print('Executed {}'.format(predicate_op))
+                selected_indices = [index_by_id[id(geoms)] for geoms in tree.query(query_geom['geometry']) if query_geoms.contains_properly(geoms)]
+            
+            tree_index.extend(np.sort(np.array(selected_indices, dtype = np.intp)))
+            input_geometry_index.extend([index] * len(selected_indices))
+        
+        return np.vstack([input_geometry_index, tree_index])
+
+start = time.time()
+indices = spatial_query(arrays_poly, arrays_point).query('contains')
+print(indices)
+print("execution " + str(time.time() - start))
+# tree_index = []
+# input_geometry_index = []
+# point_indices = 0  
+# for i, query_geom in enumerate(arrays_poly):
+#     prep_geom = prep(query_geom['geometry'])
+#     selected_point = [index_by_id[id(pt)] for pt in tree.query(query_geom['geometry']) if prep_geom.contains(pt)]
+#     tree_index.extend(np.sort(np.array(selected_point, dtype = np.intp)))
+#     input_geometry_index.extend([i] * len(selected_point))
+
+# indices = np.vstack([input_geometry_index, tree_index])
+# print("Time to execute shapely STRtree method " + str(time.time() - start_obji))
+
+# dico = []
+# for i, query_geom in enumerate(arrays_poly):
+#     R2 = np.nanmean(arrays_point[np.where(indices[0] == i)]['R2_mS_m_'], axis = 0)
+#     R3 = np.nanmean(arrays_point[np.where(indices[0] == i)]['R3_mS_m_'], axis = 0)
+#     R4 = np.nanmean(arrays_point[np.where(indices[0] == i)]['R4_mS_m_'], axis = 0)
+#     dico.append((R2, R3, R4))
+
+# a1 = np.array(dico, dtype=[('R2_mean', np.float64), ('R3_mean', np.float64), ('R4_mean', np.float64)])
+# arrays = rfn.merge_arrays([arrays_poly, a1], flatten = True, usemask = False)
+
+# print('Rtree indices {}'.format(rtree_indices))
+# print('pygeos STRtree Indices {}'.format(pygeos_strtree_indices))
+# print('Shapely STRtree indices {}'.format(indices))
