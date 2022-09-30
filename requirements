@@ -1,8 +1,9 @@
-re
+re == 2.2.1
 os
 tqdm
 osgeo
-fiona
-pyproj
-shapely
+fiona == 1.8.21
+pyproj == 3.3.1
+shapely == 1.8.4
+pygeos == 0.13
 collections
