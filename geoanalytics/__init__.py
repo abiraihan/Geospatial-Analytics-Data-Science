@@ -13,3 +13,6 @@
 #     ComputeArray
 #     )
 # import base
+# import os
+# os.chdir(os.path.dirname(os.getcwd()))
+# from geoanalytics.prototype import prototype

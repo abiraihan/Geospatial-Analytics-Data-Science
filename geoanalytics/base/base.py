@@ -7,7 +7,6 @@ Created on Fri Sep 30 02:28:05 2022
 """
 
 import os
-import re
 import fiona
 import pyproj
 import shapely
@@ -22,8 +21,12 @@ from base.spatialquery.spatialquery import (
     ComputeArray
     )
 
-
 class geoprocessing:
+    
+    """
+    Module provides functionalty to store all spatial data set as a numpy structured array
+    
+    """
     
     @classmethod
     def set_attribute_point(
@@ -202,7 +205,6 @@ class geoprocessing:
             **kwargs) -> str:
         '''
         
-
         Parameters
         ----------
         filename : str
@@ -210,17 +212,17 @@ class geoprocessing:
         *args : tuple, non-keywords args
             -> List of Attribute name that will be accounted for find identical values.
         **kwargs : dict, keywords agrs
-            --> 'outputDirs' is 'None', if assigned then shapefile will be \
-                exported to the assinged 'ouputDirs' directory.
-            --> 'fileNames' is 'None', if assigned then shapefile name will be \
-                assinged while exporting shapefile,
-            --> 'targetEPSG' is 'None', if assinged then shapefile projection will \
-                be assinged and exported with 'targetEPSG' as coordinate reference
-                system
-            --> 'xycoords' arguments is set 'False' as to confirm that \
+            --> 'outputDirs' is 'None',
+                if assigned then shapefile will be exported to the assinged 'ouputDirs' directory.
+            --> 'fileNames' is 'None',
+                if assigned then shapefile name will be assinged while exporting shapefile,
+            --> 'targetEPSG' is 'None',
+                if assinged then shapefile projection will be assinged and exported with 'targetEPSG'
+                as coordinate reference system
+            --> 'xycoords' arguments is set 'False' as to confirm that
                 xy coordinates will not be account for point geometry,
-            --> 'removeIdentical' is 'False'', If assinged 'True' then identical \
-                records will be removed from the datasets/shapefile.
+            --> 'removeIdentical' is 'False'',
+                If assinged 'True' then identical records will be removed from the datasets/shapefile.
 
         Returns
         -------
@@ -248,10 +250,10 @@ class geoprocessing:
         if point_args['targetEPSG'] is not None:
             target_crs = int(point_args['targetEPSG'])
         else:
-            target_crs = int(re.split(r":", file.crs['init'])[1])
+            target_crs = int(file.crs['init'].split(':')[1])
         
         transformer = pyproj.Transformer.from_crs(
-            crs_from=pyproj.CRS.from_user_input(int(re.split(r":", file.crs['init'])[1])),
+            crs_from=pyproj.CRS.from_user_input(int(file.crs['init'].split(':')[1])),
             crs_to=pyproj.CRS.from_user_input(target_crs),
             always_xy=True
             )
@@ -304,7 +306,10 @@ class geoprocessing:
                 file_path = f"{os.path.dirname(cls._filename)}/{os.path.basename(cls._filename)}"
                 
         with fiona.open(file_path, 'w', **schemas['profile']) as output:
-            for row in tqdm(schemas['array_data'], desc = f'Creating Files --> {os.path.basename(file_path)}', colour = 'Green'):
+            for row in tqdm(
+                    schemas['array_data'],
+                    desc = f'Creating Files --> {os.path.basename(file_path)}',
+                    colour = 'Green'):
                  point = shapely.geometry.Point(float(row[0]), float(row[1]))
                  properties = {name : row[index] for name, index in schemas['attribute_index'].items()}
                  output.write({'geometry':shapely.geometry.mapping(point),'properties': properties})
@@ -366,10 +371,10 @@ class geoprocessing:
         if poly_args['targetEPSG'] is not None:
             target_crs = int(poly_args['targetEPSG'])
         else:
-            target_crs = int(re.split(r":", shapefile.crs['init'])[1])
+            target_crs = int(shapefile.crs['init'].split(':')[1])
         
         transformer = pyproj.Transformer.from_crs(
-            crs_from=pyproj.CRS.from_user_input(int(re.split(r":", shapefile.crs['init'])[1])),
+            crs_from=pyproj.CRS.from_user_input(int(shapefile.crs['init'].split(':')[1])),
             crs_to=pyproj.CRS.from_user_input(target_crs),
             always_xy=True
             )
@@ -388,8 +393,14 @@ class geoprocessing:
                     *[values for keys, values in {**i['properties']}.items()]]
                     )
             elif i['geometry']['type'] == 'MultiPolygon':
-                multipolys = [shapely.geometry.Polygon(coords[0]) for coords in i['geometry']['coordinates']]
-                trsnMultiPoly = shapely.geometry.MultiPolygon([shapely.ops.transform(transformer.transform, i) for i in multipolys])
+                multipolys = [shapely.geometry.Polygon(coords[0])
+                              for coords in i['geometry']['coordinates']
+                              ]
+                trsnMultiPoly = shapely.geometry.MultiPolygon(
+                    [shapely.ops.transform(
+                        transformer.transform, i)
+                        for i in multipolys]
+                    )
                 init_array.append([
                     trsnMultiPoly,
                     *[values for keys, values in {**i['properties']}.items()]]
@@ -413,15 +424,21 @@ class geoprocessing:
                 else:
                     file_path = f"{poly_args['outputDirs']}/{os.path.basename(cls._filename)}"
             else:
-                raise ValueError(f"Aformentioned directory {poly_args['outputDirs']} is not a valid path location.\
-                                  Please assign valid directory")
+                raise ValueError(
+                    f"Aformentioned directory {poly_args['outputDirs']} is not a valid path location.\
+                        Please assign valid directory"
+                        )
         else:
             if poly_args['fileNames'] is not None:
                 file_path = f"{os.path.dirname(cls._filename)}/{poly_args['fileNames']}.shp"
             else:
                 file_path = f"{os.path.dirname(cls._filename)}/{os.path.basename(cls._filename)}"
         with fiona.open(file_path, 'w', **schemas['profile']) as output:
-            for row in tqdm(unique_array, desc = f'Creating Files --> {os.path.basename(file_path)}', colour = 'Green'):
+            for row in tqdm(
+                    unique_array,
+                    desc = f'Creating Files --> {os.path.basename(file_path)}',
+                    colour = 'Green'
+                    ):
                   properties = {name : row[index] for name, index in schemas['attribute_index'].items()}
                   output.write({'geometry':shapely.geometry.mapping(row[0]),'properties': properties})
         output.close()
@@ -456,7 +473,6 @@ class geoprocessing:
                 
         shape_array = []
         with fiona.open(cls._filePath, 'r') as shapefile:
-            source_crs = int(re.split(r":", shapefile.crs['init'])[1])
             for i in shapefile:
                 shape_array.append(
                     tuple([
@@ -464,29 +480,16 @@ class geoprocessing:
                     *[values for keys, values in {**i['properties']}.items()]
                     ])
                     )
-            
             properties = collections.OrderedDict(list(collections.OrderedDict(
                 [('geometry', 'object')]
                 ).items()) + list(shapefile.profile['schema']['properties'].items()))
-            
-            crs = {'init':f'epsg:{source_crs}'}
-            srs = osr.SpatialReference()
-            srs.ImportFromEPSG(source_crs)
-            crs_wkt = srs.ExportToWkt()
-            
-            profile = {'driver': shapefile.profile['driver'],
-                        'schema' : {'geometry': shapefile.profile['schema']['geometry'],
-                        'properties':shapefile.profile['schema']['properties']},
-                        'crs' : crs,
-                        'crs_wkt' : crs_wkt
-                        }
         shapefile.close()
         
         attribute_type = {}
         for i, j in properties.items():
-            itemType = tuple(re.split(r":", j))
+            itemType = tuple(j.split(':'))
             if itemType[0] == 'str':
-                attribute_type[i] = (i, np.unicode, int(itemType[1]))
+                attribute_type[i] = (i, np.compat.unicode, int(itemType[1]))
             elif itemType[0] == 'float':
                 attribute_type[i] = (i, np.float64)
             elif itemType[0] == 'date':
@@ -494,13 +497,13 @@ class geoprocessing:
             elif itemType[0] == 'int':
                 attribute_type[i] = (i, np.int64)
             elif itemType[0] == 'object':
-                attribute_type[i] = (i, np.object)
+                attribute_type[i] = (i, 'object')
             else:
-                attribute_type[i] = (i, np.object)
+                attribute_type[i] = (i, 'object')
                 
         array = np.array(shape_array, dtype=[i for i in np.dtype([i for _, i in attribute_type.items()]).descr])
         
-        return array, profile
+        return array
 
     @classmethod
     def SpatialJoin(
@@ -512,7 +515,7 @@ class geoprocessing:
             **kwargs
             ):
         """
-
+        
         Parameters
         ----------
         left_data_path : (str, np.ndarray)
@@ -527,21 +530,17 @@ class geoprocessing:
         **kwargs : dict as keyword args
             - keywwords:
                 1. "stats" - Name of statistics, Valid are : 'mean', 'max', 'min'
-                2. "profile" - fiona profile for spatial I/O
-                3. "query_index_by" - Spatial indexing rule, Valid rule are ['Shapely', 'rtree']
+                2. "query_index_by" - Spatial indexing rule, Valid rule are ['shapely', 'pygeos' 'rtree']
             
         Raises
         ------
         ValueError
-            - If number of records for left_data_path doesn't match left_data_path after \
-                perform spatial query by selected predicates
+            - If spatail query tree algorithm is not from ['shapely', 'pygeos' 'rtree']
 
         Returns
         -------
         arrays : numpy.ndarry
             - numpy.ndarray structured array data for spatially joined data
-        profiles : TYPE
-            - **profile for fiona metadata with updated properties values for attribute.
 
         """
 
@@ -549,37 +548,43 @@ class geoprocessing:
         cls._right_data_path = right_data_path
         cls._predicates = predicates
         
-        if cls._predicates not in {"intersects",
-                                   "within",
-                                   "contains",
-                                   "overlaps",
-                                   "crosses",
-                                   "touches",
-                                   "covers",
-                                   "contains_properly"
-                                   }:
-            raise ValueError("{} not an valid predicate".format(cls._predicates))
+        if cls._predicates not in {
+                "intersects",
+                "within",
+                "contains",
+                "overlaps",
+                "crosses",
+                "touches",
+                "covers",
+                "contains_properly"
+                }:
+            raise ValueError(
+                "{} not an valid predicate".format(
+                    cls._predicates)
+                )
         
         join_args = dict(
             stats = 'mean',
-            profile = None,
-            query_index_by = 'shapely',
-            verbose = False
+            query_index_by = 'shapely'
             )
         
+        valid_tree_index = ['shapely', 'pygeos', 'rtree']
         
         for key, value in join_args.items():
             if key in kwargs:
                 join_args[key] = kwargs[key]
         
-        if join_args['query_index_by'] not in ['shapely', 'pygeos', 'rtree']:
-            raise TypeError("{} not a valid rule, Select one valid rules from ['shapely', 'pygeos', 'rtree']".format(join_args['query_index_by']))
+        if join_args['query_index_by'] not in valid_tree_index:
+            raise TypeError(
+                "{} not a valid rule, Select one valid rules from {}".format(
+                    join_args['query_index_by'], valid_tree_index)
+                )
         
         if isinstance(cls._left_data_path, str):
-            left_array, left_profile = cls.structured_numpy_array(cls._left_data_path)
+            left_array = cls.structured_numpy_array(cls._left_data_path)
             
         if isinstance(cls._right_data_path, str):
-            right_array, _ = cls.structured_numpy_array(cls._right_data_path)
+            right_array  = cls.structured_numpy_array(cls._right_data_path)
         
         if isinstance(cls._left_data_path, np.ndarray):
             left_array = cls._left_data_path
@@ -587,10 +592,6 @@ class geoprocessing:
         if isinstance(cls._right_data_path, np.ndarray):
             right_array = cls._right_data_path
         
-        if isinstance(cls._left_data_path, np.ndarray) and join_args['profile'] == None:
-            raise ValueError(
-                "Please specify fiona 'profile' **kwargs and dtype should be dict, 'profile' keyword args cannot be '{}' type".format(join_args['profile'])
-                )
         if join_args['query_index_by'] == 'shapely':
             query_shape = SpatialQuery(
                 right_array['geometry']).QueryIndex(
@@ -611,44 +612,21 @@ class geoprocessing:
                     )
         else:
             raise ValueError(
-                "Not a accepted valid spatial index algorithm")
+                "Set a valid spatial index algorithm from one of the folowing {}".format(
+                    valid_tree_index)
+                )
         
-        joined_data, properties, unique_tree_indices = ComputeArray.spatial_join(
+        joined_data = ComputeArray.spatial_join(
             query_shape,
+            left_array,
             right_array,
             join_args['stats'],
             *args
             )
-        
-        try:
-            arrays = np.lib.recfunctions.merge_arrays(
-                [left_array, joined_data],
-                flatten=True,
-                usemask=False
-                )
-            if join_args['verbose'] == True:
-                print("Binary predicate : - {} - by Regular".format(cls._predicates))
-        except ValueError:
-            try:
-                arrays = np.lib.recfunctions.merge_arrays(
-                    [left_array[unique_tree_indices],
-                     joined_data],
-                    flatten = True,
-                    usemask = False
-                    )
-                if join_args['verbose'] == True:
-                    print("Binary predicate : - {} - by Exception".format(cls._predicates))
-            except IndexError:
-                if join_args['verbose'] == True:
-                    print("Binary predicate : - {} - not accepted for current spatial operation".format(cls._predicates))
-        if join_args['verbose'] == True:
-            if args is not None:
-                print("Statistics set as '{}' for spatial operation on attribute : - {}".format(
-                    join_args['stats'], args))
-            
-        if isinstance(cls._left_data_path, np.ndarray) and join_args['profile'] is not None:
-            join_args['profile']['schema']['properties'].update(properties)
-            return arrays, join_args['profile']
-        else:
-            left_profile['schema']['properties'].update(properties)
-            return arrays, left_profile
+
+        arrays = np.lib.recfunctions.merge_arrays(
+            [left_array, joined_data],
+            flatten=True,
+            usemask=False
+            )
+        return arrays

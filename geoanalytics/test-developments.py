@@ -108,12 +108,12 @@ from utils import _process_geometry
 #             data.append(point)
 
 
-mzs_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Soil Sample/Panola Farming_South Panola_SP 12_2022_NO Product_1_poly.shp'
-swath_poly_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/processed_data/planting_point_swath_poly.shp'
-planting = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Planting/Panola Farming_South Panola_SP 12_2022_P1718-PRYME_1.shp'
-ecom = '/araihan/Reserach_Data/extracted_data/Panola Farming/ECOM/Panola Farming_South Panola_SP 12_NO Year_TSM_1.shp'
-harvest = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Harvest/Panola Farming_South Panola_SP 12_2022_CORN_1.shp'
-predicate_list = ["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "contains_properly"]
-right_array, _ = geoprocessing.structured_numpy_array(ecom)
-left_array, prof = geoprocessing.structured_numpy_array(mzs_path)
+# mzs_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Soil Sample/Panola Farming_South Panola_SP 12_2022_NO Product_1_poly.shp'
+# swath_poly_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/processed_data/planting_point_swath_poly.shp'
+# planting = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Planting/Panola Farming_South Panola_SP 12_2022_P1718-PRYME_1.shp'
+# ecom = '/araihan/Reserach_Data/extracted_data/Panola Farming/ECOM/Panola Farming_South Panola_SP 12_NO Year_TSM_1.shp'
+# harvest = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Harvest/Panola Farming_South Panola_SP 12_2022_CORN_1.shp'
+# predicate_list = ["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "contains_properly"]
+# right_array, _ = geoprocessing.structured_numpy_array(ecom)
+# left_array, prof = geoprocessing.structured_numpy_array(mzs_path)
 

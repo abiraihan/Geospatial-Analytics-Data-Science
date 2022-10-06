@@ -37,7 +37,10 @@ class SpatialQuery(shapely.strtree.STRtree):
         if cls.geometry is None:
             return np.array([], dtype=np.intp)
         
-        if not isinstance(cls.geometry, shapely.geometry.base.BaseGeometry):
+        if not isinstance(
+                cls.geometry,
+                shapely.geometry.base.BaseGeometry
+                ):
             raise TypeError(
                 "Got `geometry` of type `{}`, `geometry` must be ".format(
                     type(cls.geometry)
@@ -72,7 +75,9 @@ class SpatialQuery(shapely.strtree.STRtree):
                     cls._predicate, valid_predicates
                 )
             )
-        tree_idx = shapely.strtree.STRtree(cls._input_geometry)
+        tree_idx = shapely.strtree.STRtree(
+            cls._input_geometry
+            )
         if not tree_idx:
             return np.array([], dtype=np.intp)
         tree_index, input_geom_index = [], []
@@ -100,9 +105,10 @@ class SpatialQuery(shapely.strtree.STRtree):
                             shapely.prepared.PreparedGeometry
                             ):
                         geometry = shapely.prepared.prep(geo)
-                        indices = [i for i in tree_idx.query_items(geo)
-                                   if getattr(geometry, cls._predicate)(cls._input_geometry[i])
-                                   ]
+                        indices = [
+                            i for i in tree_idx.query_items(geo)
+                            if getattr(geometry, cls._predicate)(cls._input_geometry[i])
+                            ]
                         tree_index.extend(np.sort(np.array(indices, dtype=np.intp)))
                 else:
                     indices = [i for i in tree_idx.query_items(geo)
@@ -213,8 +219,13 @@ class RtreeQuery(rtree.index.Index):
                 )
             )
         
-        if not isinstance(cls._query_geom, shapely.geometry.base.BaseGeometry):
-            raise TypeError('Not a valid type of geometry')
+        if not isinstance(
+                cls._query_geom,
+                shapely.geometry.base.BaseGeometry
+                ):
+            raise TypeError(
+                'Not a valid type of geometry'
+                )
         
         tree_idx = [int(i) for i in cls._tree_indices.intersection(cls._query_geom.bounds)]
         
@@ -224,16 +235,44 @@ class RtreeQuery(rtree.index.Index):
                     shapely.prepared.PreparedGeometry
                     ):
                 cls._query_geom = shapely.prepared.prep(cls._query_geom)
-                res = [ind for ind in tree_idx if cls._query_geom.contains(cls._input_geometry[ind])]
-        elif cls._predicate in {"contains", "intersects", "covers", "contains_properly"}:
-            if not isinstance(cls._query_geom, shapely.prepared.PreparedGeometry):
+                res = [
+                    ind for ind in tree_idx
+                    if cls._query_geom.contains(
+                    cls._input_geometry[ind])
+                    ]
+        elif cls._predicate in {
+                "contains",
+                "intersects",
+                "covers",
+                "contains_properly"
+                }:
+            if not isinstance(
+                    cls._query_geom,
+                    shapely.prepared.PreparedGeometry
+                    ):
                 cls._query_geom = shapely.prepared.prep(cls._query_geom)
-                res = [ind for ind in tree_idx if getattr(cls._query_geom, cls._predicate)(cls._input_geometry[ind])]
+                res = [
+                    ind for ind in tree_idx if getattr(
+                    cls._query_geom,
+                    cls._predicate)(cls._input_geometry[ind])]
         elif cls._predicate is not None:
-            res = [ind for ind in tree_idx if getattr(cls._query_geom, cls._predicate)(cls._input_geometry[ind])]
+            res = [
+                ind for ind in tree_idx if getattr(
+                    cls._query_geom,
+                    cls._predicate)(
+                        cls._input_geometry[ind]
+                        )
+                        ]
         else:
-            raise shapely.predicates.PredicateError("'{}' not a valid predicate".format(cls._predicate))
-        return np.sort(np.array(res, dtype = np.intp))
+            raise shapely.predicates.PredicateError(
+                "'{}' not a valid predicate".format(
+                    cls._predicate)
+                )
+        return np.sort(
+            np.array(
+                res,
+                dtype = np.intp)
+            )
     
     def QueryIndex(
             cls,
@@ -333,7 +372,6 @@ class ComputeArray:
         dict
             1. dict type object with re-evaluated attribute name and numpy dtype for each attribute
             2. One of the selected stat_type from ['mean', 'max', 'min']
-            3. 'properties' for fiona profile which includes attributes name and dtype for each attribute
 
         """
         cls._arrays = arrays
@@ -341,7 +379,9 @@ class ComputeArray:
         
         if cls._stat_type not in ['max', 'min', 'mean']:
             raise ValueError(
-                "'{}' is not accepted, select one valid statistics from ['max', 'min', 'mean']".format(cls._stat_type))
+                "'{}' is not accepted, select one valid statistics from ['max', 'min', 'mean']".format(
+                    cls._stat_type)
+                )
         
         all_attrs = [i for i, j in cls._arrays.dtype.descr]
         if len(args) == 0:
@@ -375,16 +415,15 @@ class ComputeArray:
                 raise ValueError(
                     "'{}' exist more than once into dict as attribute name, \
                         either change it or rename the attribute name".format(name))
-        
-        properties = cls._fiona_properties(dtype_dict)
                         
-        return dtype_dict, stat_type, properties
+        return dtype_dict, stat_type
     
     @classmethod
     def spatial_join(
             cls,
             query_tree: np.ndarray,
-            geom_queried: np.array,
+            parent_geom:np.ndarray,
+            geom_queried: np.ndarray,
             stats: str,
             *args: tuple
             ):
@@ -403,20 +442,19 @@ class ComputeArray:
 
         Returns
         -------
-        TYPE
-            1. Numpy.ndarray of data after compute statistics
-            2. fiona 'properties' as OrderedDict for available/selected attribute
-            3. numpy.array of unique index value from 'query_tree'
+        numpy.ndarray
+            Numpy.ndarray of data after compute statistics
 
         """
         cls._query_tree = query_tree
+        cls._parent_geom = parent_geom
         cls._geom_queried = geom_queried
         cls._stats = stats
         
-        dtypes, stats_op, properties = cls.attribute_dtype(cls._geom_queried, cls._stats, *args)
+        dtypes, stats_op = cls.attribute_dtype(cls._geom_queried, cls._stats, *args)
         # print(len(np.unique(cls._query_tree[0])))
         array_value = []
-        for index in tqdm(np.unique(cls._query_tree[0])):
+        for index in tqdm(range(len(cls._parent_geom))):
             join_value = []
             for attribute_name, attribute_type in dtypes.items():
                 if stats_op == 'mean':
@@ -425,59 +463,68 @@ class ComputeArray:
                             np.nanmean(
                                 cls._geom_queried
                                 [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
+                                  [np.where(cls._query_tree[0]==index)]]
                                 [attribute_name],
                                 axis = 0)
                             )
                     elif np.dtype(attribute_type[1]).kind in ['U', 'M']:
-                        join_value.append(
-                            mode(
-                                cls._geom_queried
-                                [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
-                                [attribute_name])
-                            )
+                        try:
+                            join_value.append(
+                                mode(
+                                    cls._geom_queried
+                                    [cls._query_tree[1]
+                                      [np.where(cls._query_tree[0]==index)]]
+                                    [attribute_name])
+                                )
+                        except:
+                            join_value.append(None)
                 elif stats_op == 'max':
                     if np.dtype(attribute_type[1]).kind in ['i', 'f']:
                         join_value.append(
                             np.nanmax(
                                 cls._geom_queried
                                 [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
+                                  [np.where(cls._query_tree[0]==index)]]
                                 [attribute_name],
                                 axis = 0)
                             )
                     elif np.dtype(attribute_type[1]).kind in ['U', 'M']:
-                        join_value.append(
-                            mode(
-                                cls._geom_queried
-                                [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
-                                [attribute_name])
-                            )
+                        try:
+                            join_value.append(
+                                mode(
+                                    cls._geom_queried
+                                    [cls._query_tree[1]
+                                      [np.where(cls._query_tree[0]==index)]]
+                                    [attribute_name])
+                                )
+                        except:
+                            join_value.append(None)
                 elif stats_op == 'min':
                     if np.dtype(attribute_type[1]).kind in ['i', 'f']:
                         join_value.append(
                             np.nanmin(
                                 cls._geom_queried
                                 [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
+                                  [np.where(cls._query_tree[0]==index)]]
                                 [attribute_name],
                                 axis = 0)
                             )
                     elif np.dtype(attribute_type[1]).kind in ['U', 'M']:
-                        join_value.append(
-                            mode(
-                                cls._geom_queried
-                                [cls._query_tree[1]
-                                 [np.where(cls._query_tree[0]==index)]]
-                                [attribute_name])
-                            )
+                        try:
+                            join_value.append(
+                                mode(
+                                    cls._geom_queried
+                                    [cls._query_tree[1]
+                                      [np.where(cls._query_tree[0]==index)]]
+                                    [attribute_name])
+                                )
+                        except:
+                            join_value.append(None)
             array_value.append(join_value)
         
         return np.array(
             [tuple(i)
-             for i in array_value],
+              for i in array_value],
             dtype = [j 
-                     for i, j in dtypes.items()]
-            ), properties, np.unique(cls._query_tree[0])
+                      for i, j in dtypes.items()]
+            )
