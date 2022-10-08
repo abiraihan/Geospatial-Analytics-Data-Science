@@ -5,15 +5,14 @@ Created on Fri Sep 30 02:08:14 2022
 
 @author: araihan
 """
-import re
+
 import numpy as np
 import pyproj
-from numpy.lib import recfunctions
 import shapely
 import fiona
+from numpy.lib import recfunctions
 import warnings
 import geopandas as gpd
-# from base.spatialquery import spatialquery
 from base.base import geoprocessing as gpr
 from core.core import cores
 import os
@@ -106,43 +105,50 @@ planting = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Planting/P
 ecom = '/araihan/Reserach_Data/extracted_data/Panola Farming/ECOM/Panola Farming_South Panola_SP 12_NO Year_TSM_1.shp'
 harvest = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Harvest/Panola Farming_South Panola_SP 12_2022_CORN_1.shp'
 
+
+import collections
 from sklearn.neighbors import KNeighborsRegressor
-ff = cores.remove_identical(harvest, xycoords = False)
-fs = cores.remove_identical(polyPath, xycoords = False)
-# polydata = gpr.structured_numpy_array(polyPath)
-# pointdata = gpr.structured_numpy_array(ecom)
-# harvestpoint = gpr.structured_numpy_array(harvest)
 
-# unary_poly = shapely.ops.unary_union(polydata['geometry'])
+queryGeom = cores.remove_identical(polyPath, xycoords = True)
 
-# arrays = gridBounds(unary_po'Elevation_''Elevation_'ly, 4326)
+harvesting = cores.remove_identical(harvest, xycoords = True)
+
+pointdata = gpr.structured_numpy_array(ecom)
+
+plantpoint = gpr.structured_numpy_array(planting)
+
+unary_poly = shapely.ops.unary_union(queryGeom['geometry'])
+
+arrays = gridBounds(unary_poly, 4326)
+join = gpr.SpatialJoin(arrays[0], queryGeom, 'intersects', *['Soil_pH__1', 'P_lb_ac_', 'K_lb_ac_', 'Soil_CEC_m', 'Soil_OM___'])
+njoin = gpr.SpatialJoin(join, harvesting, 'intersects', *['Yld_Vol_Dr', 'Time'])
+snjoin = gpr.SpatialJoin(njoin, pointdata, 'intersects', *['R4_mS_m_', 'rWTC___', 'D2I_m_'])
+pnjoin = gpr.SpatialJoin(snjoin, plantpoint, 'intersects', *['Rt_Apd_Ct_'])
 
 # griData = arrays[0]
 
 # cols, rows = arrays[1]
 
-# join = gpr.SpatialJoin(arrays[0], pointdata, 'intersects', *['R4_mS_m_', 'rWTC___', 'D2I_m_'])
-
-# njoin = gpr.SpatialJoin(join, harvestpoint, 'intersects', *['Yld_Vol_Dr', 'Elevation_'])
+# join = gpr.SpatialJoin(arrays[0], queryGeom, 'intersects')
 
 # print(join.dtype.names)
-
 # az = gpd.GeoSeries(data=join['geometry'], crs = 'EPSG:4326')
 # az = gpd.GeoDataFrame(data = join[['R4_m___mean', 'rWTC__mean', 'D2I___mean']], geometry = az)
-
 # az.plot(column = 'R4_m___mean', figsize = (5,5),linewidth = 1, cmap = 'tab20', edgecolor = 'k')
 
 # A = np.flipud(np.reshape(join['D2I___mean'], (cols, -1)).T)
 # B = np.flipud(np.reshape(join['rWTC__mean'], (cols, -1)).T)
 # C = np.flipud(np.reshape(join['R4_m___mean'], (cols, -1)).T)
+# D = np.flipud(np.reshape(njoin['Yld_o_r_mean'], (cols, -1)).T)
 
 # array_dict = {
 #     'D2I___mean' : 0,
 #     'rWTC__mean' : 1,
-#     'R4_m___mean' : 2
+#     'R4_m___mean' : 2,
+#     'Yld_o_r_mean' : 3
 #     }
 
-# arr = np.stack([A, B, C])
+# arr = np.stack([A, B, C, D])
 
 def KNeighborArray(multiArray, index):
     
@@ -151,7 +157,7 @@ def KNeighborArray(multiArray, index):
     
     train_X, train_y = [[frow[i], fcol[i]] for i in range(len(frow))], multiArray[index][frow, fcol]
     
-    knn = KNeighborsRegressor(n_neighbors= 5, weights='uniform', algorithm='kd_tree', p=2)
+    knn = KNeighborsRegressor(n_neighbors= 5, weights='distance', algorithm='ball_tree', p=2)
     knn.fit(train_X, train_y)
     
     r2 = knn.score(train_X, train_y)
@@ -166,6 +172,18 @@ def KNeighborArray(multiArray, index):
             karray[r, c] = y_pred[i]
             i += 1
     return karray
+
+# data = griData
+# for name, index in array_dict.items():
+#     vals = np.fliplr(KNeighborArray(arr, index).T).reshape([arr[index].size, 1]).flatten()
+#     st_array = np.array([vals], dtype = [(name, np.float64)])
+#     data = recfunctions.merge_arrays(
+#         [data, st_array],
+#         fill_value = np.nan,
+#         flatten=True,
+#         usemask=False
+#         )
+#     print(name)
 
 # d2i = KNeighborArray(arr, array_dict['D2I___mean'])
 # print(B)

@@ -25,7 +25,7 @@ class cores:
         properties = collections.OrderedDict(list(collections.OrderedDict(
             [('geometry', 'object')]
             ).items()) + list(shapefile.profile['schema']['properties'].items()) +
-            list(collections.OrderedDict([('identical', 'int:15')]).items()))
+            list(collections.OrderedDict([('identical', 'float:15.4')]).items()))
         attribute_type = {}
         for i, j in properties.items():
             itemType = tuple(j.split(':'))
@@ -84,7 +84,7 @@ class cores:
             ('lon', 'float:22.20')]
             )
         
-        identical_cols = collections.OrderedDict([('identical', 'int:15')])
+        identical_cols = collections.OrderedDict([('identical', 'float:15.4')])
         
         mergeDict = collections.OrderedDict(
             list(xyattributes.items()) +

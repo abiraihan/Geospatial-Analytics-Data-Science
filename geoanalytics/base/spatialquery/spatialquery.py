@@ -393,15 +393,25 @@ class ComputeArray:
             if arg not in all_attrs:
                 raise AttributeError(
                     "{} not available into the numpy structured array, \
-                        please assing correct attribute name".format(arg))
+                        please assign correct attribute name".format(arg))
         
-        dtype_dict = {}
+        dtype_dict, unique_items = {}, []
         for i, j in cls._arrays.dtype.descr:
             if i in attrs:
                 if np.dtype(j).kind in ['i', 'f']:
-                    dtype_dict[i] = (''.join([(i[:3] + i[3::2])[:8], '_', cls._stat_type])[:12], j)
+                    ivals = ''.join([*[st for st in filter(str.isalnum, i)][:7], '_', cls._stat_type])[:30]
+                    if ivals not in unique_items:
+                        unique_items.append(ivals)
+                        dtype_dict[i] = (''.join([*[st for st in filter(str.isalnum, i)][:7], '_', cls._stat_type])[:30], j)
+                    else:
+                        dtype_dict[i] = (''.join([*[st for st in filter(str.isalnum, i)], '_', cls._stat_type])[:30], j)
                 elif np.dtype(j).kind in ['U', 'M']:
-                    dtype_dict[i] = (''.join([(i[:3] + i[3::2])[:7], '_', 'major'])[:12], j)
+                    uvals = ''.join([*[st for st in filter(str.isalnum, i)][:7], '_', 'major'])[:30]
+                    if uvals not in unique_items:
+                        unique_items.append(uvals)
+                        dtype_dict[i] = (''.join([*[st for st in filter(str.isalnum, i)][:7], '_', 'major'])[:30], j)
+                    else:
+                        dtype_dict[i] = (''.join([*[st for st in filter(str.isalnum, i)], '_', 'major'])[:30], j)
                 elif np.dtype(j).kind in ['O']:
                     raise TypeError(
                         "'{}' attribute is an object type and its not acceptable for numeric function, \
@@ -521,10 +531,27 @@ class ComputeArray:
                         except:
                             join_value.append(None)
             array_value.append(join_value)
-        
+        rename_dtype = lambda parent, query : {
+            i:(i, j)
+            for i, j in
+            {
+             {
+              i[0]:str(str(i[0][:-1])+str(int(i[0][-1])+1))
+              if i[0][-1].isdigit() else str(str(i[0])+str(1))
+              for i in query.values()
+              if i[0] in parent.dtype.names
+              and i[0] not in 'geometry'
+              }.get(k, k): v
+             for k, v in collections.OrderedDict(
+                     {i[0]:i[1]
+                      for i in query.values() if i[0] not in 'geometry'}
+                     ).items()
+             }.items()}
+        dtypes_changed = [rename_dtype(cls._parent_geom, dtypes) if len(rename_dtype(cls._parent_geom, dtypes))>0 else dtypes]
+        # print(dtypes_changed[0])
         return np.array(
             [tuple(i)
               for i in array_value],
             dtype = [j 
-                      for i, j in dtypes.items()]
+                      for i, j in dtypes_changed[0].items()]
             )
