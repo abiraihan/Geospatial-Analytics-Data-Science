@@ -14,14 +14,22 @@ import numpy as np
 import collections
 from osgeo import osr
 from tqdm import tqdm
-from base.spatialquery.spatialquery import (
-    SpatialQuery,
-    GeosQuery,
-    RtreeQuery,
-    ComputeArray
-    )
+
+
+class geo_array(np.ndarray):
+    
+    def __new__(cls, input_array, crs = None):
+        obj = np.asarray(input_array).view(cls)
+        obj.crs = crs
+        return obj
+    
+    def __array_final__(self, obj):
+        if obj is None: return
+        self.crs = getattr(obj, 'crs', None)
+
 
 class geoprocessing:
+    
     
     """
     Module provides functionalty to store all spatial data set as a numpy structured array
@@ -457,9 +465,6 @@ class geoprocessing:
         filePath : str
                 --> file path of shapefile location.
 
-        Raises
-        ------
-
         Returns
         -------
         array : numpy.array
@@ -473,6 +478,7 @@ class geoprocessing:
                 
         shape_array = []
         with fiona.open(cls._filePath, 'r') as shapefile:
+            crs = int(shapefile.crs['init'].split(':')[1])
             for i in shapefile:
                 shape_array.append(
                     tuple([
@@ -501,132 +507,13 @@ class geoprocessing:
             else:
                 attribute_type[i] = (i, 'object')
                 
-        array = np.array(shape_array, dtype=[i for i in np.dtype([i for _, i in attribute_type.items()]).descr])
-        
-        return array
-
-    @classmethod
-    def SpatialJoin(
-            cls,
-            left_data_path: (str, np.ndarray),
-            right_data_path: (str, np.ndarray),
-            predicates: str,
-            *args: tuple,
-            **kwargs
-            ):
-        """
-        
-        Parameters
-        ----------
-        left_data_path : (str, np.ndarray)
-            - Spatial data path as str or numpy.ndarray to join data from right_data_path
-        right_data_path : (str, np.ndarray)
-            - Spatial data path as str or numpy.ndarray to join data to left_data_path
-        predicates : str
-            - Binary Predicates. Accepted predicates are : "intersects", "within", "contains", "overlaps", "crosses",
-              "touches", "covers", "contains_properly"
-        *args : tuple, non-keyword args
-            - Assign list of attributes to perform statistics on.
-        **kwargs : dict as keyword args
-            - keywwords:
-                1. "stats" - Name of statistics, Valid are : 'mean', 'max', 'min'
-                2. "query_index_by" - Spatial indexing rule, Valid rule are ['shapely', 'pygeos' 'rtree']
-            
-        Raises
-        ------
-        ValueError
-            - If spatail query tree algorithm is not from ['shapely', 'pygeos' 'rtree']
-
-        Returns
-        -------
-        arrays : numpy.ndarry
-            - numpy.ndarray structured array data for spatially joined data
-
-        """
-
-        cls._left_data_path = left_data_path
-        cls._right_data_path = right_data_path
-        cls._predicates = predicates
-        
-        if cls._predicates not in {
-                "intersects",
-                "within",
-                "contains",
-                "overlaps",
-                "crosses",
-                "touches",
-                "covers",
-                "contains_properly"
-                }:
-            raise ValueError(
-                "{} not an valid predicate".format(
-                    cls._predicates)
-                )
-        
-        join_args = dict(
-            stats = 'mean',
-            query_index_by = 'shapely'
-            )
-        
-        valid_tree_index = ['shapely', 'pygeos', 'rtree']
-        
-        for key, value in join_args.items():
-            if key in kwargs:
-                join_args[key] = kwargs[key]
-        
-        if join_args['query_index_by'] not in valid_tree_index:
-            raise TypeError(
-                "{} not a valid rule, Select one valid rules from {}".format(
-                    join_args['query_index_by'], valid_tree_index)
-                )
-        
-        if isinstance(cls._left_data_path, str):
-            left_array = cls.structured_numpy_array(cls._left_data_path)
-            
-        if isinstance(cls._right_data_path, str):
-            right_array  = cls.structured_numpy_array(cls._right_data_path)
-        
-        if isinstance(cls._left_data_path, np.ndarray):
-            left_array = cls._left_data_path
-        
-        if isinstance(cls._right_data_path, np.ndarray):
-            right_array = cls._right_data_path
-        
-        if join_args['query_index_by'] == 'shapely':
-            query_shape = SpatialQuery(
-                right_array['geometry']).QueryIndex(
-                    query_geometry = left_array['geometry'],
-                    predicate = cls._predicates
-                    )
-        elif join_args['query_index_by'] == 'rtree':
-            query_shape = RtreeQuery(
-                right_array['geometry']).QueryIndex(
-                    bulk_geom = left_array['geometry'],
-                    predicate = cls._predicates
-                    )
-        elif join_args['query_index_by'] == 'pygeos':
-            query_shape = GeosQuery(
-                right_array['geometry']).QueryIndex(
-                    query_geometry = left_array['geometry'],
-                    predicate = cls._predicates
-                    )
-        else:
-            raise ValueError(
-                "Set a valid spatial index algorithm from one of the folowing {}".format(
-                    valid_tree_index)
-                )
-        
-        joined_data = ComputeArray.spatial_join(
-            query_shape,
-            left_array,
-            right_array,
-            join_args['stats'],
-            *args
-            )
-
-        arrays = np.lib.recfunctions.merge_arrays(
-            [left_array, joined_data],
-            flatten=True,
-            usemask=False
-            )
-        return arrays
+        array = np.array(
+            shape_array,
+            dtype=[
+                i
+                for i in
+                np.dtype(
+                    [i for _, i in
+                     attribute_type.items()]
+                    ).descr])
+        return geo_array(array, crs= crs)
