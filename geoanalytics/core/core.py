@@ -346,8 +346,8 @@ class cores:
     @classmethod
     def SpatialJoin(
             cls,
-            left_data_path: (str, np.ndarray),
-            right_data_path: (str, np.ndarray),
+            left_data_path: (str, np.ndarray, geo_array, geotranslate),
+            right_data_path: (str, np.ndarray, geo_array, geotranslate),
             predicates: str,
             *args: tuple,
             **kwargs
@@ -501,7 +501,7 @@ class spatialstack:
     def __getitem__(cls, key):
         if key not in 'geometry':
             cols, rows = spatialGrid.getShape(cls._joinData)
-            return np.flipud(np.reshape(cls._joinData[key], (cols, -1)).T)
+            return np.flipud(np.reshape(cls._joinData.__data__[key], (cols, -1)).T)
         else:
             print("{} can't be processed".format(key))
     

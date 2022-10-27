@@ -6,7 +6,7 @@ Created on Sat Oct 15 22:27:57 2022
 @author: araihan
 """
 
-from prototype import translate
+from georead.georead import geotranslate
 from base.base import geoprocessing
 
 class analytics(type):
@@ -35,7 +35,7 @@ class geos:
     
     @property
     def data(cls):
-        class_name.translate = translate(class_name.geofile)
+        class_name.translate = geotranslate(class_name.geofile)
         class_name.process = geoprocessing
         return class_name
 

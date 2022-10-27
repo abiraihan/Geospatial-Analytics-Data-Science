@@ -12,6 +12,7 @@ import shapely
 import pyproj
 from tqdm import tqdm
 import pandas as pd
+from utils.utils import utils
 from base.base import geoprocessing, geo_array
 
 class geotranslate:
@@ -106,6 +107,13 @@ class geotranslate:
 
         """
         return np.unique(cls.__getitem__(key))
+    def __getPoly__(cls, x_length, y_length, rotation):
+        arraysd = []
+        for i in cls.__data__:
+            geoms = utils.point_to_poly((i['geometry'].x, i['geometry'].y), i[x_length], i[y_length], i[rotation])
+            array_val = [geoms, *[val for val in i][1:]]
+            arraysd.append(tuple(array_val))
+        return geo_array(np.array(arraysd, dtype = cls.dtype), crs = cls.crs)
     @property
     def crs(cls):
         return cls._crs
