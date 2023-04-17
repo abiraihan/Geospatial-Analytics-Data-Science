@@ -13,8 +13,7 @@ class analytics(type):
     __repr__ = lambda cls : cls.__name__
     
     def __new__(cls, *args, **kwargs):
-        instances = super().__new__(cls, *args, **kwargs)
-        return instances
+        return super().__new__(cls, *args, **kwargs)
 
 # Geoanalytics=analytics("Geoanalytics", (translate, geoprocessing, ), {})
 
@@ -25,21 +24,20 @@ class geos:
     global class_name
     class_name = analytics("Geoanalytics", (object, ), {})
     
-    def __init__(cls, **kwargs):
-        for key, values in kwargs.items():
-            print(key)
-            setattr(class_name, key, values)
+    # def __init__(cls, **kwargs):
+    #     for key, values in kwargs.items():
+    #         print(key)
+    #         setattr(class_name, key, values)
             
     def __repr__(cls):
         return "{}".format(class_name)
     
-    @property
-    def data(cls):
-        class_name.translate = geotranslate(class_name.geofile)
-        class_name.process = geoprocessing
-        return class_name
+    
+    def data(files):
+        # cls.translate = geotranslate(files)
+        return geotranslate(files)
 
 
-files ='/araihan/Reserach_Data/extracted_data/Panola Farming/processed_data/planting_point_swath_poly.shp'
+files ='/home/kali/WorkEasy/2022 Investor Report Data/organized_by_investor/Maritz Investments/boundary/Brown_Brown_Cashup_NO Year_NO Product_1_poly.shp'
 
-geodata =geos(geofile = files).data
+geodata = geos.data(files)

@@ -117,7 +117,28 @@ class utils:
         return polyshape
      
     @staticmethod
-    def find_spcs(geoms:shapely.geometry, utm_datum:str = None)-> dict:
+    def find_spcs(
+            geoms:shapely.geometry,
+            utm_datum:str = None,
+            area_of_use:bool = False
+            )-> dict:
+        """
+
+        Parameters
+        ----------
+        geoms : shapely.geometry
+            DESCRIPTION. shapely.geometry object \n
+        area_of_use : bool, optional
+            DESCRIPTION. The default is False. \n
+        utm_datum : str, optional
+            DESCRIPTION. The default is None. \n
+            
+        Returns
+        -------
+        dict
+            DESCRIPTION. Dict items with EPSG - 'US Survey Code'
+
+        """
         # UTM Datum can be
         # 'WGS84'- for geographic (On ellipsoid/sphere),
         # 'NAD83' - For Projected (On Plane), 'NAD27'
@@ -133,9 +154,19 @@ class utils:
             east_lon_degree=xmax,
             north_lat_degree=ymax,
         ),contains = True)
+        
         if utm_datum is not None:
             utm_crs = query_utm_crs_info(
                 datum_name= utm_datum,
+            area_of_interest=AreaOfInterest(
+                west_lon_degree=xmin,
+                south_lat_degree=ymin,
+                east_lon_degree=xmax,
+                north_lat_degree=ymax,
+            ),)
+        else:
+            utm_crs = query_utm_crs_info(
+                datum_name= 'NAD83',
             area_of_interest=AreaOfInterest(
                 west_lon_degree=xmin,
                 south_lat_degree=ymin,
@@ -157,8 +188,6 @@ class utils:
                 'spcs' : int(epsg_code),
                 'spcs_unit' : CRS.from_epsg(epsg_code).axis_info[0].unit_name
                 }
-            if utm_datum is not None:
-                final_crs['utm'] = int(utm_crs[0].code)
         except IndexError:
             epsg_code = [i.code
                         for i in spc_crs
@@ -168,11 +197,22 @@ class utils:
                 'spcs' : int(epsg_code),
                 'spcs_unit' : CRS.from_epsg(epsg_code).axis_info[0].unit_name
                 }
-            if utm_datum is not None:
-                final_crs['utm'] = int(utm_crs[0].code)
+        
+        final_crs['utm'] = int(utm_crs[0].code)
         final_crs['comp_code'] = int(epsg_cod[0])
+        
         if final_crs['comp_code'] == final_crs['spcs']:
             final_crs['Match'] = True
         else:
             final_crs['Match'] = False
+        
+        if utm_datum is None:
+            final_crs['datum'] = 'NAD83'
+        else:
+            final_crs['datum'] = utm_datum
+        
+        final_crs['projected'] = CRS.from_epsg(final_crs['spcs']).is_projected
+        if area_of_use:
+            final_crs['area_of_use'] = CRS.from_epsg(final_crs['spcs']).area_of_use.name
+        
         return final_crs
