@@ -17,7 +17,7 @@ class Colorbar:
             - fontpath values with font name as key
 
         """
-        font_dirs = "../../reporting/fonts"
+        font_dirs = "/home/kali/geolytics/Geospatial-Analytics-Data-Science/geoanalytics/reporting/fonts/"
         return {
             os.path.basename(i).split('.', 1)[0]:i
             for i in [

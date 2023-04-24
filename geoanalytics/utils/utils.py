@@ -13,9 +13,9 @@ from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_crs_info, query_utm_crs_info
 
 class utils:
-    
+
     @classmethod
-    def point_to_poly(
+    def swathpoly(
             cls,
             point_origin:tuple,
             y_axis_length:float,
@@ -47,11 +47,9 @@ class utils:
         '''
         
         cls._point_origin = point_origin
-        cls._y_axis_length = y_axis_length
-        cls._x_axis_length = x_axis_length
-        cls._rotation_angle = rotation_angle
-        
-        ft_deg = lambda x : (x*0.3047999902464003)/1e5
+        cls._y_axis_length = y_axis_length #Distance
+        cls._x_axis_length = x_axis_length #Swath
+        cls._rotation_angle = rotation_angle #Track
  
         keyword_args = dict(
             y_axis_offset = 0,
@@ -80,28 +78,28 @@ class utils:
             cls._x_axis_length = cls._x_axis_length
             cls._y_axis_length = cls._y_axis_length
         
-        ymax = cls._point_origin[1] + ft_deg(cls._y_axis_length)/2
-        ymin = cls._point_origin[1] - ft_deg(cls._y_axis_length)/2
+        ymax = cls._point_origin[1] + (cls._y_axis_length/2)
+        ymin = cls._point_origin[1] - (cls._y_axis_length/2)
         
         if keyword_args['y_axis_offset'] != 0:
             if keyword_args['y_axis_offset'] < 0 and cls._rotation_angle >= 180:
-                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) + ft_deg(keyword_args['y_axis_offset'])
-                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) + ft_deg(keyword_args['y_axis_offset'])
+                xmax = ((cls._x_axis_length/2) + cls._point_origin[0]) + keyword_args['y_axis_offset']
+                xmin = (cls._point_origin[0] - (cls._x_axis_length/2)) + keyword_args['y_axis_offset']
             elif keyword_args['y_axis_offset'] < 0 and cls._rotation_angle < 180:
-                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) - ft_deg(keyword_args['y_axis_offset'])
-                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) - ft_deg(keyword_args['y_axis_offset'])
+                xmax = ((cls._x_axis_length/2) + cls._point_origin[0]) - keyword_args['y_axis_offset']
+                xmin = (cls._point_origin[0] - (cls._x_axis_length/2)) - keyword_args['y_axis_offset']
             elif keyword_args['y_axis_offset'] > 0 and cls._rotation_angle < 180:
-                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) - ft_deg(keyword_args['y_axis_offset'])
-                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) - ft_deg(keyword_args['y_axis_offset'])
+                xmax = ((cls._x_axis_length/2) + cls._point_origin[0]) - keyword_args['y_axis_offset']
+                xmin = (cls._point_origin[0] - (cls._x_axis_length/2)) - keyword_args['y_axis_offset']
             elif keyword_args['y_axis_offset'] > 0 and cls._rotation_angle >= 180:
-                xmax = (ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]) + ft_deg(keyword_args['y_axis_offset'])
-                xmin = (cls._point_origin[0] - ft_deg(cls._x_axis_length)/2) + ft_deg(keyword_args['y_axis_offset'])
+                xmax = ((cls._x_axis_length/2) + cls._point_origin[0]) + keyword_args['y_axis_offset']
+                xmin = (cls._point_origin[0] - (cls._x_axis_length/2)) + keyword_args['y_axis_offset']
             else:
-                xmax = ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]
-                xmin = cls._point_origin[0] - ft_deg(cls._x_axis_length)/2
+                xmax = (cls._x_axis_length/2) + cls._point_origin[0]
+                xmin = cls._point_origin[0] - (cls._x_axis_length/2)
         else:
-            xmax = ft_deg(cls._x_axis_length)/2 + cls._point_origin[0]
-            xmin = cls._point_origin[0] - ft_deg(cls._x_axis_length)/2
+            xmax = (cls._x_axis_length/2) + cls._point_origin[0]
+            xmin = cls._point_origin[0] - (cls._x_axis_length/2)
             
         deg180 = lambda x , y: x - y*(x//y)
         
