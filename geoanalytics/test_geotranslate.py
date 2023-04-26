@@ -11,3 +11,7 @@ file = '/home/kali/Data/Panola/2022 Planting/Corn/Panola Farming_Panola_12_2022_
 from georead.georead import geotranslate
 
 df = geotranslate(file)
+
+dfs = df.crs
+
+print(dfs)

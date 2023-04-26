@@ -8,6 +8,7 @@ Created on Thu Sep  8 18:22:50 2022
 
 import warnings
 import shapely
+from shapely.geometry import Polygon
 from pyproj import CRS
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_crs_info, query_utm_crs_info
