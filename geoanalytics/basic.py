@@ -13,11 +13,11 @@ import fiona
 from numpy.lib import recfunctions
 import warnings
 import geopandas as gpd
-from base.base import geoprocessing as gpr
-from core.core import cores
-import os
-os.chdir(os.path.abspath(os.getcwd()))
-
+from geoanalytics.base.base import geoprocessing as gpr
+from geoanalytics.core.core import cores
+# import os
+# os.chdir(os.path.abspath(os.getcwd()))
+file = '/home/kali/Data/Panola/2022 Planting/Corn/Panola Farming_Panola_12_2022_DKC70-27 PRYME_1.shp'
 
 polyPath = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Soil Sample/Panola Farming_South Panola_SP 12_2022_NO Product_1_poly.shp'
 swath_poly_path = '/araihan/Reserach_Data/extracted_data/Panola Farming/processed_data/planting_point_swath_poly.shp'
@@ -29,11 +29,11 @@ harvest = '/araihan/Reserach_Data/extracted_data/Panola Farming/2022 Harvest/Pan
 import collections
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 
-queryGeom = cores.remove_identical(polyPath, xycoords = True)
+# queryGeom = cores.remove_identical(polyPath, xycoords = True)
 
 # harvesting = cores.remove_identical(harvest, xycoords = True)
 
-# pointdata = gpr.structured_numpy_array(polyPath)
+pointdata = gpr.structured_numpy_array(file)
 
 # plantpoint = gpr.structured_numpy_array(planting)
 

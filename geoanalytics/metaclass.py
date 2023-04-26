@@ -2,6 +2,7 @@
 
 import fiona
 import os
+from shapely.ops import shape
 class analytics(type):
     
     def __new__(cls, name, base, dicts):
@@ -10,7 +11,12 @@ class analytics(type):
 class MyClass(metaclass=analytics):
     
     def read_file(files):
-        return fiona.open(files, 'r')
+        geoms = []
+        rt = fiona.open(files, 'r')
+        for file in rt:
+            geoms.append(shape(file['geometry']))
+        rt.close()
+        return geoms
 
         
 rx_data = '/home/kali/LearnPDF/boundary'

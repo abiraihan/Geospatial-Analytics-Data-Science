@@ -10,7 +10,8 @@ import numpy as np
 import shapely
 import pyproj
 from tqdm import tqdm
-from base.base import geo_array
+from geoanalytics.base.base import geo_array
+
 class spatialGrid:
     
     @classmethod

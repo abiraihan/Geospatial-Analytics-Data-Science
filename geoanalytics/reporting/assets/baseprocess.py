@@ -69,7 +69,7 @@ class Basemap:
         def image_ratio(ratio):
             if 0 < ratio <= 1:
                 if int(1280*ratio) <= 1280:
-                    return int(1280*ratio)
+                    return int(round(1280*ratio))
                 else:
                     raise ValueError("Check Input Values for Image ration")
             else:
@@ -110,6 +110,7 @@ class Basemap:
             )
         
         height_px = image_ratio(size_args['ratio'])
+        
         width_px = 1280
         
         width_inc = ((ymax - ymin)/ height_px)*width_px - width.length
@@ -366,49 +367,25 @@ class Basemap:
     
     @staticmethod
     def PlantingVarietySwaths(filepaths, credentials, *attributes, **kwargs):
-        
-        args = dict(
-            ratio = 1,
-            padding = 10,
-            target_attr = 'Product',
-            xaxis_length_attr = 'Swth_Wdth_', # Swath length
-            yaxis_length_attr = 'Distance_f', # Distance
-            rotation_attr = 'Track_deg_', #Rotation
-            data_type = 'Planting'
-            )
-        
-        for key, value in args.items():
-            if key in kwargs:
-                args[key] = kwargs[key]
-        
+                
         data = Report.PolyPlantingVariety(
             filepaths, *attributes,
-            data_type = args['data_type'],
-            target_attr = args['target_attr'],
-            xaxis_length_attr = args['xaxis_length_attr'], 
-            yaxis_length_attr = args['yaxis_length_attr'], # Distance
-            rotation_attr = args['rotation_attr'], #Rotation
-            ) # args =  ['Grower___N', 'Farm___Nam', 'Field___Na', 'Product___']
+            **kwargs
+            )
         extent_info = Basemap.Extent(
             data['swath_filepath'],
             credentials,
-            ratio = args['ratio'],
-            padding = args['padding']
+            **kwargs
             )
         
         extent_info.update(data)
-        extent_info['data_type'] = args['data_type']
-        extent_info['target_attr'] = args['target_attr']
+        extent_info['data_type'] = kwargs['data_type']
+        extent_info['target_attr'] = kwargs['target_attr']
         extent_info['plot_type'] =  'Planting Variety Plot'
         return extent_info
     
     @staticmethod
     def PlantingVarietyMap(extent_info, outpath, **kwargs):
-        
-        # usage: extent_info = PlantingVarietySwaths(
-        # plantfiles, creds, *['Grower___N', 'Farm___Nam', 'Field___Na', 'Product___']
-        # )
-        # df = PlantingVarietyMap(extent_info, outpath)
                 
         args = dict(
             target_attr = 'Product',
@@ -514,35 +491,21 @@ class Basemap:
     
     @staticmethod
     def PlantingRateSwaths(filepath, credentials, *args, **kwargs):
-        
-        rate_args = dict(
-            ratio = 1,
-            padding = 10,
-            target_attr = 'Rt_Apd_Ct_',
-            xaxis_length_attr = 'Swth_Wdth_', # Swath length
-            yaxis_length_attr = 'Distance_f', # Distance
-            rotation_attr = 'Track_deg_', #Rotation
-            data_type = 'Planting'
-            )
-        
-        for key, value in rate_args.items():
-            if key in kwargs:
-                rate_args[key] = kwargs[key]
-        
+                
         data = Report.PolyPlantingRate(
             filepath,
-            *args, **rate_args
+            *args, **kwargs
             )
         
         extent_info = Basemap.Extent(
             data['swath_filepath'],
             credentials,
-            **rate_args
+            **kwargs
             )
         
         extent_info.update(data)
-        extent_info['data_type'] = rate_args['data_type']
-        extent_info['target_attr'] = rate_args['target_attr']
+        extent_info['data_type'] = kwargs['data_type']
+        extent_info['target_attr'] = kwargs['target_attr']
         
         return extent_info
     
@@ -621,9 +584,15 @@ class Basemap:
             ax = ax
             )
         
-        fields.plot(ax = ax, column = extent_info['plotting_attribute'], cmap = legends['cmaps'],
-                    figsize = (args['mapsWidth'], args['mapsHeight'])
-                    )
+        fields.plot(
+            ax = ax,
+            column = extent_info['plotting_attribute'],
+            cmap = legends['cmaps'],
+            figsize = (
+                args['mapsWidth'],
+                args['mapsHeight']
+                )
+            )
         
         try:
             plt.savefig(

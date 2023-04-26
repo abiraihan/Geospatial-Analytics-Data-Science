@@ -134,7 +134,8 @@ class Bezier:
 
 points = [
     [400, 505],
-    [580, 400],
+    [550, 600],
+    [500, 400],
     [400, 130]
 ]
 curve = Bezier(points)

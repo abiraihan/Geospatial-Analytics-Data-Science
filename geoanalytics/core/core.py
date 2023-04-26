@@ -12,15 +12,16 @@ import numpy as np
 import collections
 import pyproj
 import pandas
-from base.spatialquery.spatialquery import (
+from shapely.strtree import STRtree
+from geoanalytics.base.spatialquery.spatialquery import (
     SpatialQuery,
     GeosQuery,
     RtreeQuery,
     ComputeArray
     )
-from base.base import geoprocessing, geo_array
-from georead.georead import geotranslate
-from geotransform.geotransform import spatialGrid
+from geoanalytics.base.base import geoprocessing, geo_array
+from geoanalytics.georead.georead import geotranslate
+from geoanalytics.geotransform.geotransform import spatialGrid
 
 class cores:
     

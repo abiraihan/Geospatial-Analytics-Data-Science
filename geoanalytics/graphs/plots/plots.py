@@ -442,9 +442,11 @@ class Plots:
             raise ValueError("PNG image Path 'bar_legend_filepath' keywords can not be left empty or unassigned! ")
         
         insert_symbol = list(datas.items())
-        insert_symbol.insert(0, ('<', 0))
+        min_val = min(list(datas.keys()))
+        insert_symbol.insert(0, ('<', datas[min_val]))
         
         data = dict(insert_symbol)
+        data.pop(min_val)
         
         fig, ax = plt.subplots(
             figsize = (legend_args['width'], legend_args['bar_height'])
@@ -464,20 +466,6 @@ class Plots:
             else:
                 raise ValueError(f" -> '{legend_args['font_name']}' font is not available.\
                                   Available fonts are {list(Plots.fonts().keys())}")
-                                  
-        def set_xspace(val):
-            if len(str(val)) > 5:
-                prop.set_size(10)
-                space = 0.5
-            elif len(str(val)) == 5:
-                space = 0.58
-            elif len(str(val)) == 4:
-                space = 0.45
-            elif len(str(val)) == 3:
-                space = 0.3
-            else:
-                space  = 0.15
-            return space
         
         xlocs = [i for i in range(0, len(list(data.values())))]
         ax.bar([str(i) for i in list(data.keys())], list(data.values()), bottom = 0,
@@ -511,14 +499,15 @@ class Plots:
             prop.set_size(legend_args['font_size'])
             if v != 0:
                 plt.text(
-                    xlocs[i] - set_xspace(v),
+                    xlocs[i] - 0.12,
                     v + set_yspace(data),
                     str(v),
                     font_properties = prop
                     )
+                # print(xlocs[i] - (2/(len(data))) + (2/(len(data)+1)))
             else:
                 plt.text(
-                    xlocs[i] - set_xspace(v),
+                    i,
                     v + np.std([j for i, j in data.items()]),
                     "",
                     font_properties = prop
@@ -537,7 +526,7 @@ class Plots:
     
     @staticmethod
     def PlantingRateColorLegend(datas:dict, **kwargs):
-    
+        
         legend_args = dict(
             cmaps_legend_filepath = None,
             font_name = 'Avenir LT Std 55 Oblique',
@@ -576,14 +565,18 @@ class Plots:
             else:
                 raise ValueError(f" -> '{legend_args['font_name']}' font is not available.\
                                   Available fonts are {list(Plots.fonts().keys())}")
-            
-        cmaps = colormaps[legend_args['cmaps_color']].resampled(len(datas) + 2)
-            
+        
         insert_symbol = list(datas.items())
-        insert_symbol.insert(len(insert_symbol), ('>', 0))
+        min_val = min(list(datas.keys()))
+        
+        insert_symbol.insert(0, ('<', datas[min_val]))
         
         data = dict(insert_symbol)
-    
+        data.pop(min_val)
+        
+        
+        cmaps = colormaps[legend_args['cmaps_color']].resampled(len(data) + 1)
+        
         fig, ax = plt.subplots(
             figsize = (
                 legend_args['width'],
@@ -615,16 +608,16 @@ class Plots:
             + [i + 0.5
                if i != max([i for i in ax.get_xticks()])
                else i + 0.36 for i in ax.get_xticks()],
-            ['<']+ [i for i in list(data.keys())]
+            [i for i in list(data.keys())] + ['>']
             )
         
         for label in ax.get_xticklabels():
             label.set_fontproperties(prop)
             
-        map_cmap = ListedColormap(cmaps(np.linspace(0, 1, len(data)))[1:])
-        color_dict = dict(zip(list(datas.keys()), cmaps(np.linspace(0, 1, len(data)))[1:]))
+        map_cmap = ListedColormap(cmaps(np.linspace(0, 1, len(data))))
+        color_dict = dict(zip(list(datas.keys()), cmaps(np.linspace(0, 1, len(datas)))))
         color_map = {i: tuple(j) for i, j in color_dict.items()}
-    
+        
         plt.savefig(
             legend_args['cmaps_legend_filepath'],
             dpi = legend_args['dpi'],
@@ -657,11 +650,10 @@ class Plots:
 
 
 # =============================================================================
-# data = {30: 0.9, 31: 4, 32: 6.8, 33: 16.5, 34: 23.7, 35: 0.2, 36: 0.1, 37: 0.6, 38: 1}
+# data = {30: 0.9, 31: 4, 32: 6.8, 33: 16.5}
 # ds = Plots.PlantingRateBarLegend(data, bar_legend_filepath = './bar_def.png')
-# fs = Plots.PlantingRateLegend(data, cmaps_legend_filepath = './barLeg_def.png')
+# fs = Plots.PlantingRateLegend(data, bar_legend_filepath = './bar_def.png', cmaps_legend_filepath = './barLeg_def.png')
 # =============================================================================
-
 
 
 # =============================================================================

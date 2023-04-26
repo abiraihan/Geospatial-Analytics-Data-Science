@@ -11,7 +11,6 @@ import numpy as np
 import warnings
 import shapely
 import pygeos
-from shapely.strtree import STRtree
 from tqdm import tqdm
 import collections
 from statistics import mode
@@ -547,7 +546,7 @@ class ComputeArray:
                       for i in query.values() if i[0] not in 'geometry'}
                      ).items()
              }.items()}
-        dtypes_changed = [rename_dtype(cls._parent_geom, dtypes) if len(rename_dtype(cls._parent_geom, dtypes))>0 else dtypes]
+        dtypes_changed = [rename_dtype(cls._parent_geom, dtypes) if len(rename_dtype(cls._parent_geom, dtypes)) > 0 else dtypes]
         # print(dtypes_changed[0])
         return np.array(
             [tuple(i)

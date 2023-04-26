@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Fri Sep 30 04:42:24 2022
 
@@ -12,8 +10,8 @@ import shapely
 import pyproj
 from tqdm import tqdm
 import pandas as pd
-from utils.utils import utils
-from base.base import geoprocessing, geo_array
+from geoanalytics.utils.utils import utils
+from geoanalytics.base.base import geoprocessing, geo_array
 
 class geotranslate:
     
@@ -92,6 +90,7 @@ class geotranslate:
             ), int(_crs_code))
         cls.crs = int(_crs_code)
         return cls.__data__
+    
     def unique(cls, key):
         """
 
@@ -107,13 +106,15 @@ class geotranslate:
 
         """
         return np.unique(cls.__getitem__(key))
-    def __getPoly__(cls, x_length, y_length, rotation):
+    
+    def __getSwathPoly__(cls, x_length, y_length, rotation):
         arraysd = []
         for i in cls.__data__:
-            geoms = utils.point_to_poly((i['geometry'].x, i['geometry'].y), i[x_length], i[y_length], i[rotation])
+            geoms = utils.swathpoly((i['geometry'].x, i['geometry'].y), i[x_length], i[y_length], i[rotation])
             array_val = [geoms, *[val for val in i][1:]]
             arraysd.append(tuple(array_val))
         return geo_array(np.array(arraysd, dtype = cls.dtype), crs = cls.crs)
+    
     @property
     def crs(cls):
         return cls._crs
@@ -178,7 +179,7 @@ class geotranslate:
     
     @property
     def profile(cls):
-        read_file = fiona.open(cls.file, 'r')
+        read_file = fiona.open(cls.filepath, 'r')
         geo = read_file.profile
         read_file.close()
         return geo
@@ -207,3 +208,9 @@ class geotranslate:
         else:
             print('Invalid geometry found')
         return validity
+
+# import os
+# plant_data = '/home/kali/Data/Corn_AsPlanted'
+# files = [os.path.join(plant_data, i) for i in os.listdir(plant_data) if os.path.basename(i).split('.', 1)[1] == 'shp'][0]
+
+# dr = geotranslate(files)

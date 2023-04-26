@@ -39,9 +39,10 @@ class OrderedClass(type):
 
 class MyClass(metaclass=OrderedClass):
     # method1 goes in array element 0
-    def method1(self):
-        pass
+    def m1(self):
+        return 0
 
     # method2 goes in array element 1
-    def method2(self):
-        pass
+    def m2(self):
+        return 1
+

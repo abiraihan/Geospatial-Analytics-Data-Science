@@ -15,29 +15,30 @@ class analytics(type):
     def __new__(cls, *args, **kwargs):
         return super().__new__(cls, *args, **kwargs)
 
-# Geoanalytics=analytics("Geoanalytics", (translate, geoprocessing, ), {})
+tics=analytics("Geoanalytics", (geotranslate, geoprocessing, ), {'filepaths': None})
 
-# data = analytics("Geoanalytics", (object, ), {'files':None})
+data = analytics("Geoanalytics", (object, ), {})
         
-class geos:
+# class geos:
     
-    global class_name
-    class_name = analytics("Geoanalytics", (object, ), {})
+#     global class_name
+#     class_name = analytics("Geoanalytics", (object, ), {})
     
-    # def __init__(cls, **kwargs):
-    #     for key, values in kwargs.items():
-    #         print(key)
-    #         setattr(class_name, key, values)
-            
-    def __repr__(cls):
-        return "{}".format(class_name)
-    
-    
-    def data(files):
-        # cls.translate = geotranslate(files)
-        return geotranslate(files)
-
+#     def __init__(cls, **kwargs):
+#         for key, values in kwargs.items():
+#             print(key)
+#             setattr(class_name, key, values)
 
 files ='/home/kali/WorkEasy/2022 Investor Report Data/organized_by_investor/Maritz Investments/boundary/Brown_Brown_Cashup_NO Year_NO Product_1_poly.shp'
 
-geodata = geos.data(files)
+# geodata = geos(file = files)
+
+
+class Geo(str):
+    
+    def __new__(cls, o):
+        return geotranslate(o)
+    
+
+x = Geo(files)
+        
